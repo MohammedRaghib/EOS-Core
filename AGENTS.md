@@ -55,6 +55,10 @@ apps/eos_core/
         ├── scorecard_entry/     # Scorecard Entry (Child, istable=1)
         ├── scorecard/           # Scorecard (Standard, team × timeframe)
         ├── measurable_group/    # Measurable Group (Standard, linked by metrics)
+        ├── issue/               # Issue (Standard) + create_issue_from_metric
+        ├── level_10_meeting/    # Level 10 Meeting (Standard) + agenda/to-dos
+        ├── meeting_agenda_item/ # Meeting Agenda Item (Child)
+        ├── meeting_to_do/       # Meeting To Do (Child)
         ├── organization/        # Organization (Standard)
         ├── team/                # Team (Standard, nested hierarchy)
         └── player/              # Player (Standard, person/seat)
@@ -66,13 +70,15 @@ apps/eos_core/
 |---|---|---|
 | Metric master data | `EOS Metric` | DONE — `metric_name`, `owner`, `team`, `target_value`, `operator` (`>=`/`<=`/`==`/`Inside min/max`/`Outside min/max`), `min_value`, `max_value`, `frequency`, `unit`, `unit_type`, `rollup`, `is_smart`, `formula`, `scorecard`, `group`, `archived`, `description`, `entries` |
 | Period records | `Scorecard Entry` | DONE — `metric`, `week_start_date`, `actual_value`, `status` (On Track/Off Track), `is_manual` |
-| Scoring engine | `eos_core.scorecard_engine` | DONE — `compute_status`, `compute_achievement`, `compute_health`, `aggregate_values`, `extract_variables`, `evaluate_formula`, `prorate_for_period`, `count_consecutive_off_track` |
+| Scoring engine | `eos_core.scorecard_engine` | DONE — `compute_status`, `compute_achievement`, `compute_health`, `aggregate_values`, `extract_variables`, `evaluate_formula`, `prorate_for_period`, `count_consecutive_off_track`, `scorecard_summary`, `default_agenda_sections` |
 | Auto-status + formulas | `EOSMetric.validate` | DONE — range validation, auto-create Scorecard, formula validation/recalc, entry status loop |
 | Org structure | `Organization` / `Team` / `Player` | DONE — nested teams (cycle + cross-org validation), players mapped to users |
 | Scorecard header | `Scorecard` | DONE — `team` + `timeframe` (unique combo), format autoname, auto-created on metric save |
 | Measurable grouping | `Measurable Group` | DONE — `group_name`, `scorecard`, `order`; max 20 per scorecard, unique name per scorecard |
+| Meetings | `Level 10 Meeting` / `Meeting Agenda Item` / `Meeting To Do` | DONE — unique team+date, status transitions, default 6-item agenda auto-filled |
+| Issues (IDS) | `Issue` + `create_issue_from_metric` | DONE — forward-only transitions, solution required on Solve, "Make it an Issue" from off-track metric |
 
-Tests: `bench --site resolv.localhost run-tests --app eos_core` runs 27 tests (set `allow_tests true`
+Tests: `bench --site resolv.localhost run-tests --app eos_core` runs 36 tests (set `allow_tests true`
 first — already enabled on `resolv.localhost`).
 
 Permissions are System Manager only for now (role model is Phase 6 in the roadmap).
@@ -90,8 +96,7 @@ Permissions are System Manager only for now (role model is Phase 6 in the roadma
 
 ## What to build next
 
-See `docs/roadmap.md`. Phase 3 (Scorecards, Groups & Formulas) is now in progress. Forecasting /
-custom period goals are deferred. Phase 4 (Meetings & Reporting) is the next major phase:
-Level 10 Meeting agenda, Issues from off-track measurables, and weekly scorecard reports.
+See `docs/roadmap.md`. Phase 4 (Meetings & Reporting) is now in progress; the weekly scorecard report
+is the remaining item. Phase 5 (V/TO, Rocks, To-Dos, quarterly reviews) is the next major phase.
 Re-read the roadmap before starting so naming and data flow stay consistent with the architecture
 document.

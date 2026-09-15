@@ -160,6 +160,60 @@ erDiagram
 - **Validate order**: `validate_owner_team` → `validate_range_target` → `ensure_scorecard` →
   `validate_group` → `validate_formula` → `apply_formula` → entry status loop.
 
+## 3d. Meetings & Issues (Phase 4 — implemented)
+
+```mermaid
+erDiagram
+    Team ||--o{ "Level 10 Meeting" : meetings
+    "Level 10 Meeting" ||--o{ "Meeting Agenda Item" : agenda_items
+    "Level 10 Meeting" ||--o{ "Meeting To Do" : todo_items
+    Team ||--o{ Issue : issues
+    "EOS Metric" ||--o{ Issue : generated_issues
+
+    "Level 10 Meeting" {
+        string name PK "format:{team}-{meeting_date}"
+        string team FK "Team"
+        date meeting_date
+        string status "Planned/In Progress/Complete"
+        string notes
+    }
+
+    "Meeting Agenda Item" {
+        string section "Segue/Scorecard Review/Good News/To-Dos/IDS/123s of the Week"
+        int completed
+        string notes
+    }
+
+    "Meeting To Do" {
+        string description
+        string owner_user FK "User"
+        date due_date
+        int completed
+    }
+
+    Issue {
+        string issue_name PK, UK
+        string status "Identified/Discussing/Solved/Dropped (forward-only)"
+        string priority "Low/Medium/High/Critical"
+        string owner_user FK "User"
+        string team FK "Team"
+        string source "Manual/Scorecard"
+        string originating_metric FK "EOS Metric"
+        string description
+        string solution "required on Solved"
+    }
+```
+
+- **IDS workflow** (`Issue.validate_status_transition`): `Identified → Discussing → Solved | Dropped`;
+  `Solved` and `Dropped` are terminal. `Solved` requires a `solution`.
+- **"Make it an Issue"** (`create_issue_from_metric`): given a metric (optionally a
+  `week_start_date`), takes the matching entry, rejects `On Track` entries, defaults owner to the
+  team leader's User, and records `source=Scorecard` + `originating_metric` plus the consecutive
+  off-track streak in the description.
+- **Level 10 Meeting**: one per team × date. Format autoname `{team}-{meeting_date}`; `status`
+  transitions `Planned → In Progress → Complete` are enforced. The standard 6 agenda sections are
+  auto-added on insert (`default_agenda_sections`).
+
 ## 4. Scoring engine (`eos_core/scorecard_engine.py`)
 
 Pure, frappe-free functions so they are trivially testable. Behaviour (defaults, all configurable):
@@ -174,6 +228,8 @@ Pure, frappe-free functions so they are trivially testable. Behaviour (defaults,
 | `evaluate_formula` | `(formula, variables)` | Safe AST-based evaluator. `{Name}` vars replaced with floats, div-by-zero → `None`. Max 25 vars. |
 | `prorate_for_period` | `(value, covered_days, period_days)` | Prorates a value by coverage ratio, clamped 0–1. |
 | `count_consecutive_off_track` | `(statuses)` | Returns trailing count of consecutive `Off Track` entries from the end of the list. |
+| `scorecard_summary` | `(statuses)` | Returns `{total, on_track, off_track}` counts for a list of entry statuses. |
+| `default_agenda_sections` | `()` | The six standard Level 10 agenda sections in order. |
 
 Design notes:
 - Status is **computed once per period**, never cumulative/vs YTD (matches Ninety: each reporting
@@ -193,6 +249,10 @@ eos_core/
         ├── scorecard_entry/     # controller: passive (pass)
         ├── scorecard/           # controller: unique team+timeframe
         ├── measurable_group/    # controller: 20-group cap + unique name per scorecard
+        ├── issue/               # controller: IDS transitions; create_issue_from_metric
+        ├── level_10_meeting/    # controller: unique team+date, agenda auto-fill, transitions
+        ├── meeting_agenda_item/ # child: L10 agenda row (passive)
+        ├── meeting_to_do/       # child: L10 action item (passive)
         ├── organization/        # organization root
         ├── team/                # nested hierarchy with cycle/cross-org validation
         └── player/              # person/seat mapped to Frappe User
@@ -206,10 +266,12 @@ See `docs/roadmap.md` for status. The target model adds:
 
 - **Structure (Phase 2 — DONE)**: `Organization` → `Team` (nested) → `Player`; metrics scoped via
   `EOS Metric.team` with an owner-in-team rule.
-- **Scorecard/groups (Phase 3 — IN PROGRESS)**: `Scorecard` header (per team × timeframe), `Measurable Group`,
+- **Scorecard/groups (Phase 3 — DONE)**: `Scorecard` header (per team × timeframe), `Measurable Group`,
   Formula Builder (Smart Measurables), `prorate_for_period`, `count_consecutive_off_track`.
   Forecasting/custom period goals are deferred.
-- **EOS tools (Phase 4–5)**: V/TO, Rocks, To-Dos, Issues (IDS), Level 10 Meetings, reports.
+- **Meetings & Issues (Phase 4 — IN PROGRESS)**: `Level 10 Meeting` (agenda + to-dos), `Issue` IDS
+  workflow with "Make it an Issue" from off-track measurables. Weekly scorecard report is next.
+- **EOS tools (Phase 5)**: V/TO, Rocks, To-Dos, quarterly reviews.
 - **Permissions (Phase 6)**: map Ninety roles (Owner / Admin / Coach / Manager / Team Member /
   Observer) onto Frappe roles and DocPerm blocks.
 

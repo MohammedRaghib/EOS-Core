@@ -6,9 +6,11 @@ from eos_core.scorecard_engine import (
 	compute_health,
 	compute_status,
 	count_consecutive_off_track,
+	default_agenda_sections,
 	evaluate_formula,
 	extract_variables,
 	prorate_for_period,
+	scorecard_summary,
 )
 
 
@@ -108,3 +110,17 @@ class TestScorecardEngine(unittest.TestCase):
 		self.assertEqual(count_consecutive_off_track(["On Track", "On Track"]), 0)
 		self.assertEqual(count_consecutive_off_track([]), 0)
 		self.assertEqual(count_consecutive_off_track(["Off Track"]), 1)
+
+	def test_scorecard_summary(self):
+		self.assertEqual(
+			scorecard_summary(["On Track", "Off Track", "On Track"]),
+			{"total": 3, "on_track": 2, "off_track": 1},
+		)
+		self.assertEqual(scorecard_summary([]), {"total": 0, "on_track": 0, "off_track": 0})
+		self.assertEqual(scorecard_summary([None]), {"total": 1, "on_track": 0, "off_track": 0})
+
+	def test_default_agenda_sections(self):
+		self.assertEqual(
+			default_agenda_sections(),
+			["Segue", "Scorecard Review", "Good News", "To-Dos", "IDS", "123s of the Week"],
+		)

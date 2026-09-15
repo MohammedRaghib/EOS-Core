@@ -151,6 +151,28 @@ def count_consecutive_off_track(statuses):
 	return count
 
 
+def scorecard_summary(statuses):
+	total = len(statuses)
+	on_track = sum(1 for status in statuses if status == "On Track")
+	off_track = sum(1 for status in statuses if status == "Off Track")
+	return {
+		"total": total,
+		"on_track": on_track,
+		"off_track": off_track,
+	}
+
+
+def default_agenda_sections():
+	return [
+		"Segue",
+		"Scorecard Review",
+		"Good News",
+		"To-Dos",
+		"IDS",
+		"123s of the Week",
+	]
+
+
 def _range_satisfied(actual_value, operator, min_value, max_value):
 	if operator == "Inside min/max":
 		if min_value is not None and actual_value < min_value:

@@ -44,7 +44,7 @@ Organization → Leadership team → Department → Team → Individual.
 **Exit criteria (met):** org hierarchy usable (Organization → nested Teams), Players attached to
 teams and Users, metric creation scoped to a team, per-team list filters possible.
 
-## Phase 3 — Scorecards, Groups, Formulas `[~] IN PROGRESS`
+## Phase 3 — Scorecards, Groups, Formulas `[x] DONE`
 
 - [x] Schema revision: range orientation rules (`Inside/Outside min/max`) on `EOS Metric`
       (adds `min_value`/`max_value`)
@@ -54,14 +54,22 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
       groups per scorecard, order matters (drives L10 review order)
 - [x] Formula Builder (Smart Measurables): `formula` (Small Text, `{Name}` variable syntax) on
       `EOS Metric`, `is_smart` toggle, `manual_override` on `Scorecard Entry`
-- [ ] Forecasting / custom period goals (per-period target overrides)
+- [ ] Forecasting / custom period goals (per-period target overrides) — deferred
 - [x] Rollup views: `prorate_for_period` helper for split-week proration; `rollup` Total vs Average
 - [x] Trends view: `count_consecutive_off_track` helper (3+ weeks → eligible Issue)
 
-## Phase 4 — Meetings & Reporting `[ ]`
+## Phase 4 — Meetings & Reporting `[~] IN PROGRESS`
 
-- [ ] `Level 10 Meeting` agenda (Segue, Scorecard review, Good News, To-Dos, IDS, 123s of the week)
-- [ ] `Issue` from off-track measurable ("Make it an Issue"), IDS workflow (Identify/Discuss/Solve)
+- [x] `Level 10 Meeting` (Standard): `team` + `meeting_date` (unique), `status`
+      (Planned → In Progress → Complete), format autoname `{team}-{meeting_date}`, default 6-item
+      agenda auto-populated (`Segue`/`Scorecard Review`/`Good News`/`To-Dos`/`IDS`/`123s of the Week`)
+- [x] `Meeting Agenda Item` (Child): `section`, `completed`, `notes` — renders the L10 agenda
+- [x] `Meeting To Do` (Child): `description`, `owner_user`, `due_date`, `completed`
+- [x] `Issue` (Standard): IDS workflow — `status` (`Identified`/`Discussing`/`Solved`/`Dropped`,
+      forward-only transitions), `priority`, `owner_user`, `team`, `source` (Manual/Scorecard),
+      `originating_metric`, `solution` required on Solve
+- [x] "Make it an Issue": `create_issue_from_metric` — turns an off-track measurable into an Issue
+      (uses latest entry / specific week, records consecutive-off-track count, links back)
 - [ ] Weekly scorecard report (email/print, off-track summary, trends)
 
 ## Phase 5 — EOS Operating System `[ ]`

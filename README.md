@@ -15,12 +15,13 @@ Ninety's data model and workflows built as a native Frappe app.
   automatic status derivation are implemented and synced to the database.
 - **Phase 2 — People & Structure: DONE.** `Organization`, `Team` (nested hierarchy with validation),
   and `Player` DocTypes; `EOS Metric` is now team-scoped with an owner-in-team rule.
-- **Phase 3 — Scorecards, Groups & Formulas: IN PROGRESS.** Range operators (`Inside/Outside
-  min/max`), `Scorecard` (team × timeframe), `Measurable Group`, Formula Builder with `{Name}`
-  syntax, `prorate_for_period`, and `count_consecutive_off_track` helpers are implemented.
-  Forecasting/custom period goals are deferred. 27 tests pass.
-- Phases 4–7 (meetings & reporting, V/TO & Rocks, permissions, integrations) are **planned** —
-  see `docs/roadmap.md`.
+- **Phase 3 — Scorecards, Groups & Formulas: DONE.** Range operators (`Inside/Outside min/max`),
+  `Scorecard` (team × timeframe), `Measurable Group`, Formula Builder with `{Name}` syntax,
+  `prorate_for_period`, and `count_consecutive_off_track`. Forecasting/custom period goals deferred.
+- **Phase 4 — Meetings & Reporting: IN PROGRESS.** `Level 10 Meeting` (agenda + to-dos), `Issue`
+  with the IDS workflow, and "Make it an Issue" from an off-track measurable are implemented.
+  The weekly scorecard report remains. 36 tests pass.
+- Phases 5–7 (V/TO & Rocks, permissions, integrations) are **planned** — see `docs/roadmap.md`.
 
 ## Who is this README for?
 
@@ -59,6 +60,10 @@ apps/eos_core/
             ├── scorecard_entry/   # Scorecard Entry (Child, istable=1)
             ├── scorecard/         # Scorecard (Standard, team × timeframe)
             ├── measurable_group/  # Measurable Group (Standard, linked by metrics)
+            ├── issue/             # Issue (Standard) + IDS workflow
+            ├── level_10_meeting/  # Level 10 Meeting (Standard) + agenda/to-dos
+            ├── meeting_agenda_item/ # Meeting Agenda Item (Child)
+            ├── meeting_to_do/     # Meeting To Do (Child)
             ├── organization/      # Organization (Standard)
             ├── team/              # Team (Standard, nested hierarchy)
             └── player/            # Player (Standard, person/seat)
