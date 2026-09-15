@@ -173,6 +173,32 @@ def default_agenda_sections():
 	]
 
 
+def build_scorecard_report(metric_blocks, trend_threshold=3):
+	metrics = []
+	for block in metric_blocks:
+		consecutive = count_consecutive_off_track(block.get("statuses", []))
+		metrics.append(
+			{
+				"name": block.get("name"),
+				"group": block.get("group"),
+				"owner": block.get("owner"),
+				"actual": block.get("actual"),
+				"target": block.get("target"),
+				"operator": block.get("operator"),
+				"unit": block.get("unit"),
+				"status": block.get("status"),
+				"consecutive_off_track": consecutive,
+			}
+		)
+	summary = scorecard_summary([metric["status"] for metric in metrics])
+	trends = [
+		{"name": metric["name"], "consecutive_off_track": metric["consecutive_off_track"]}
+		for metric in metrics
+		if metric["consecutive_off_track"] >= trend_threshold
+	]
+	return {"metrics": metrics, "summary": summary, "trends": trends}
+
+
 def _range_satisfied(actual_value, operator, min_value, max_value):
 	if operator == "Inside min/max":
 		if min_value is not None and actual_value < min_value:

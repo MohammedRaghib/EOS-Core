@@ -1,0 +1,124 @@
+{
+ "actions": [],
+ "autoname": "format:SCR-{team}-{week_start_date}",
+ "creation": "2026-09-15 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "team",
+  "week_start_date",
+  "status",
+  "column_break_1",
+  "recipient_user",
+  "last_sent_on",
+  "summary_section",
+  "total_metrics",
+  "on_track",
+  "off_track",
+  "report_metrics_section",
+  "report_metrics"
+ ],
+ "fields": [
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Team",
+   "options": "Team",
+   "reqd": 1
+  },
+  {
+   "fieldname": "week_start_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Week Start Date",
+   "reqd": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Draft\nSent",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "recipient_user",
+   "fieldtype": "Link",
+   "label": "Recipient",
+   "options": "User"
+  },
+  {
+   "fieldname": "last_sent_on",
+   "fieldtype": "Datetime",
+   "label": "Last Sent On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "summary_section",
+   "fieldtype": "Section Break",
+   "label": "Summary"
+  },
+  {
+   "fieldname": "total_metrics",
+   "fieldtype": "Int",
+   "label": "Total Metrics",
+   "read_only": 1
+  },
+  {
+   "fieldname": "on_track",
+   "fieldtype": "Int",
+   "label": "On Track",
+   "read_only": 1
+  },
+  {
+   "fieldname": "off_track",
+   "fieldtype": "Int",
+   "label": "Off Track",
+   "read_only": 1
+  },
+  {
+   "fieldname": "report_metrics_section",
+   "fieldtype": "Section Break",
+   "label": "Metrics"
+  },
+  {
+   "fieldname": "report_metrics",
+   "fieldtype": "Table",
+   "label": "Metrics",
+   "options": "Scorecard Report Metric"
+  }
+ ],
+ "links": [],
+ "modified": "2026-09-15 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Eos Core",
+ "name": "Scorecard Report",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "team",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "team",
+ "track_changes": 1
+}

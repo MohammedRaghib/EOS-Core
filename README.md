@@ -18,9 +18,10 @@ Ninety's data model and workflows built as a native Frappe app.
 - **Phase 3 — Scorecards, Groups & Formulas: DONE.** Range operators (`Inside/Outside min/max`),
   `Scorecard` (team × timeframe), `Measurable Group`, Formula Builder with `{Name}` syntax,
   `prorate_for_period`, and `count_consecutive_off_track`. Forecasting/custom period goals deferred.
-- **Phase 4 — Meetings & Reporting: IN PROGRESS.** `Level 10 Meeting` (agenda + to-dos), `Issue`
-  with the IDS workflow, and "Make it an Issue" from an off-track measurable are implemented.
-  The weekly scorecard report remains. 36 tests pass.
+- **Phase 4 — Meetings & Reporting: DONE.** `Level 10 Meeting` (agenda + to-dos), `Issue`
+  with the IDS workflow, "Make it an Issue" from an off-track measurable, and a weekly
+  `Scorecard Report` with snapshot generation, off-track summary, trend detection, and
+  email sending via a Jinja template. 41 tests pass.
 - Phases 5–7 (V/TO & Rocks, permissions, integrations) are **planned** — see `docs/roadmap.md`.
 
 ## Who is this README for?
@@ -64,6 +65,8 @@ apps/eos_core/
             ├── level_10_meeting/  # Level 10 Meeting (Standard) + agenda/to-dos
             ├── meeting_agenda_item/ # Meeting Agenda Item (Child)
             ├── meeting_to_do/     # Meeting To Do (Child)
+            ├── scorecard_report/  # Scorecard Report (Standard) + email send
+            ├── scorecard_report_metric/ # Scorecard Report Metric (Child)
             ├── organization/      # Organization (Standard)
             ├── team/              # Team (Standard, nested hierarchy)
             └── player/            # Player (Standard, person/seat)

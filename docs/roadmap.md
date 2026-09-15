@@ -58,7 +58,7 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
 - [x] Rollup views: `prorate_for_period` helper for split-week proration; `rollup` Total vs Average
 - [x] Trends view: `count_consecutive_off_track` helper (3+ weeks → eligible Issue)
 
-## Phase 4 — Meetings & Reporting `[~] IN PROGRESS`
+## Phase 4 — Meetings & Reporting `[x] DONE`
 
 - [x] `Level 10 Meeting` (Standard): `team` + `meeting_date` (unique), `status`
       (Planned → In Progress → Complete), format autoname `{team}-{meeting_date}`, default 6-item
@@ -70,7 +70,9 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
       `originating_metric`, `solution` required on Solve
 - [x] "Make it an Issue": `create_issue_from_metric` — turns an off-track measurable into an Issue
       (uses latest entry / specific week, records consecutive-off-track count, links back)
-- [ ] Weekly scorecard report (email/print, off-track summary, trends)
+- [x] Weekly scorecard report (`Scorecard Report`): one per team × week, auto-generates a snapshot
+      of all non-archived metrics + off-track summary + trend detection. `send_report` emails the
+      team leader (or a chosen recipient) via a Jinja template.
 
 ## Phase 5 — EOS Operating System `[ ]`
 

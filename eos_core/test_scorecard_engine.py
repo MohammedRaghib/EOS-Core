@@ -2,6 +2,7 @@ import unittest
 
 from eos_core.scorecard_engine import (
 	aggregate_values,
+	build_scorecard_report,
 	compute_achievement,
 	compute_health,
 	compute_status,
@@ -124,3 +125,34 @@ class TestScorecardEngine(unittest.TestCase):
 			default_agenda_sections(),
 			["Segue", "Scorecard Review", "Good News", "To-Dos", "IDS", "123s of the Week"],
 		)
+
+	def test_build_scorecard_report(self):
+		report = build_scorecard_report(
+			[
+				{
+					"name": "Revenue",
+					"group": "Financials",
+					"owner": "Administrator",
+					"actual": 90,
+					"target": 100,
+					"status": "Off Track",
+					"statuses": ["Off Track", "Off Track", "Off Track", "Off Track"],
+				},
+				{
+					"name": "Close Rate",
+					"status": "On Track",
+					"statuses": ["On Track", "On Track"],
+				},
+			]
+		)
+		self.assertEqual(report["summary"], {"total": 2, "on_track": 1, "off_track": 1})
+		self.assertEqual(report["trends"], [{"name": "Revenue", "consecutive_off_track": 4}])
+		self.assertEqual(report["metrics"][0]["consecutive_off_track"], 4)
+		self.assertEqual(report["metrics"][1]["consecutive_off_track"], 0)
+
+	def test_build_scorecard_report_threshold(self):
+		report = build_scorecard_report(
+			[{"name": "Profit", "status": "Off Track", "statuses": ["Off Track", "Off Track"]}],
+			trend_threshold=5,
+		)
+		self.assertEqual(report["trends"], [])

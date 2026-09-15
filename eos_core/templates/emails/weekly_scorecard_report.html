@@ -1,0 +1,45 @@
+<h3>Weekly Scorecard Report — {{ report.team }}</h3>
+<p>Week starting {{ report.week_start_date }} &middot; Generated {{ report.generated_on }}</p>
+
+<h4>Summary</h4>
+<p>
+	<strong>{{ summary.on_track }}</strong> on track / <strong>{{ summary.off_track }}</strong> off
+	track of {{ summary.total }} metrics.
+</p>
+
+{% if trends %}
+<h4>Off-track trends ({{ trends|length }})</h4>
+<ul>
+{% for trend in trends %}
+	<li><strong>{{ trend.name }}</strong> — {{ trend.consecutive_off_track }} consecutive weeks off track</li>
+{% endfor %}
+</ul>
+{% endif %}
+
+<h4>Metrics</h4>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%;">
+	<tr style="text-align: left;">
+		<th>Metric</th>
+		<th>Group</th>
+		<th>Owner</th>
+		<th>Actual</th>
+		<th>Target</th>
+		<th>Status</th>
+		<th>Trend</th>
+	</tr>
+	{% for row in rows %}
+	<tr>
+		<td>{{ row.name }}</td>
+		<td>{{ row.group }}</td>
+		<td>{{ row.owner }}</td>
+		<td>{{ row.actual }}</td>
+		<td>{{ row.target }}</td>
+		<td>{{ row.status or "—" }}</td>
+		<td>{{ row.trend }}</td>
+	</tr>
+	{% endfor %}
+</table>
+
+{% if not rows %}
+<p>No metrics recorded for this team and week.</p>
+{% endif %}

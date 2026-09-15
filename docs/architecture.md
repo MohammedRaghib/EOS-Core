@@ -214,6 +214,44 @@ erDiagram
   transitions `Planned → In Progress → Complete` are enforced. The standard 6 agenda sections are
   auto-added on insert (`default_agenda_sections`).
 
+## 3e. Scorecard Reports (Phase 4 — implemented)
+
+```mermaid
+erDiagram
+    "EOS Metric" }o--o{ "Scorecard Report Metric" : report_metric
+    Team ||--o{ "Scorecard Report" : reports
+
+    "Scorecard Report" {
+        string name PK "format:SCR-{team}-{week_start_date}"
+        string team FK "Team"
+        date week_start_date
+        string status "Draft/Sent"
+        string recipient_user FK "User"
+        datetime last_sent_on
+        int total_metrics
+        int on_track
+        int off_track
+    }
+
+    "Scorecard Report Metric" {
+        string metric FK "EOS Metric"
+        string group "Measurable Group name"
+        string owner FK "User"
+        float actual_value
+        float target_value
+        string status "On Track/Off Track"
+        int trend "consecutive off-track count"
+    }
+```
+
+- `Scorecard Report` captures a one-time snapshot of all non-archived team + organization-wide
+  metrics for a given week. Format autoname `SCR-{team}-{week_start_date}`.
+- `populate_snapshot()` runs on insert: collects metrics, builds per-metric blocks (entries +
+  statuses), calls `build_scorecard_report` to compute summary + trend detection, stores in the
+  child table.
+- `send_report()` renders `templates/emails/weekly_scorecard_report.html` and sends to the team
+  leader (or the configured `recipient_user`). Sets `status=Sent` and timestamps.
+
 ## 4. Scoring engine (`eos_core/scorecard_engine.py`)
 
 Pure, frappe-free functions so they are trivially testable. Behaviour (defaults, all configurable):
@@ -230,6 +268,7 @@ Pure, frappe-free functions so they are trivially testable. Behaviour (defaults,
 | `count_consecutive_off_track` | `(statuses)` | Returns trailing count of consecutive `Off Track` entries from the end of the list. |
 | `scorecard_summary` | `(statuses)` | Returns `{total, on_track, off_track}` counts for a list of entry statuses. |
 | `default_agenda_sections` | `()` | The six standard Level 10 agenda sections in order. |
+| `build_scorecard_report` | `(metric_blocks, trend_threshold=3)` | From a list of metric dicts (with `statuses`), computes per-metric trend, overall summary, and metrics exceeding the consecutive off-track threshold. |
 
 Design notes:
 - Status is **computed once per period**, never cumulative/vs YTD (matches Ninety: each reporting
@@ -253,6 +292,8 @@ eos_core/
         ├── level_10_meeting/    # controller: unique team+date, agenda auto-fill, transitions
         ├── meeting_agenda_item/ # child: L10 agenda row (passive)
         ├── meeting_to_do/       # child: L10 action item (passive)
+        ├── scorecard_report/    # controller: snapshot generation, send_report (email)
+        ├── scorecard_report_metric/ # child: report snapshot row (passive)
         ├── organization/        # organization root
         ├── team/                # nested hierarchy with cycle/cross-org validation
         └── player/              # person/seat mapped to Frappe User
@@ -269,8 +310,9 @@ See `docs/roadmap.md` for status. The target model adds:
 - **Scorecard/groups (Phase 3 — DONE)**: `Scorecard` header (per team × timeframe), `Measurable Group`,
   Formula Builder (Smart Measurables), `prorate_for_period`, `count_consecutive_off_track`.
   Forecasting/custom period goals are deferred.
-- **Meetings & Issues (Phase 4 — IN PROGRESS)**: `Level 10 Meeting` (agenda + to-dos), `Issue` IDS
-  workflow with "Make it an Issue" from off-track measurables. Weekly scorecard report is next.
+- **Meetings & Issues (Phase 4 — DONE)**: `Level 10 Meeting` (agenda + to-dos), `Issue` IDS
+  workflow with "Make it an Issue" from off-track measurables, weekly `Scorecard Report`
+  with snapshot, email sending, and trend detection.
 - **EOS tools (Phase 5)**: V/TO, Rocks, To-Dos, quarterly reviews.
 - **Permissions (Phase 6)**: map Ninety roles (Owner / Admin / Coach / Manager / Team Member /
   Observer) onto Frappe roles and DocPerm blocks.
