@@ -13,10 +13,16 @@
   "column_break_section",
   "target_value",
   "operator",
+  "min_value",
+  "max_value",
   "frequency",
   "unit",
   "unit_type",
   "rollup",
+  "is_smart",
+  "formula",
+  "scorecard",
+  "group",
   "archived",
   "description",
   "section_break_entries",
@@ -62,8 +68,18 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Operator",
-   "options": ">=\n<=\n==",
+   "options": ">=\n<=\n==\nInside min/max\nOutside min/max",
    "reqd": 1
+  },
+  {
+   "fieldname": "min_value",
+   "fieldtype": "Float",
+   "label": "Min Value"
+  },
+  {
+   "fieldname": "max_value",
+   "fieldtype": "Float",
+   "label": "Max Value"
   },
   {
    "default": "Weekly",
@@ -93,6 +109,29 @@
    "fieldtype": "Select",
    "label": "Rollup",
    "options": "Total\nAverage"
+  },
+  {
+   "fieldname": "is_smart",
+   "fieldtype": "Check",
+   "label": "Formula Builder"
+  },
+  {
+   "depends_on": "is_smart",
+   "fieldname": "formula",
+   "fieldtype": "Small Text",
+   "label": "Formula"
+  },
+  {
+   "fieldname": "scorecard",
+   "fieldtype": "Link",
+   "label": "Scorecard",
+   "options": "Scorecard"
+  },
+  {
+   "fieldname": "group",
+   "fieldtype": "Link",
+   "label": "Group",
+   "options": "Measurable Group"
   },
   {
    "fieldname": "archived",

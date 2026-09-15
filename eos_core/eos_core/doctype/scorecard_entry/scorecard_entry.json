@@ -9,7 +9,8 @@
   "week_start_date",
   "column_break_value",
   "actual_value",
-  "status"
+  "status",
+  "is_manual"
  ],
  "fields": [
   {
@@ -45,6 +46,12 @@
    "label": "Status",
    "options": "On Track\nOff Track",
    "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "is_manual",
+   "fieldtype": "Check",
+   "label": "Manual Override"
   }
  ],
  "grid_page_length": 50,

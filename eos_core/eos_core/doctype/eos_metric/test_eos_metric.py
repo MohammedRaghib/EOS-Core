@@ -4,6 +4,8 @@ from frappe.tests import IntegrationTestCase
 
 class TestEOSMetric(IntegrationTestCase):
 	def setUp(self):
+		frappe.db.delete("Measurable Group")
+		frappe.db.delete("Scorecard")
 		frappe.db.delete("Scorecard Entry")
 		frappe.db.delete("EOS Metric")
 		frappe.db.delete("Player")
@@ -64,7 +66,127 @@ class TestEOSMetric(IntegrationTestCase):
 			)
 			bad.insert()
 
+	def test_team_metric_autocreates_scorecard(self):
+		team = frappe.get_doc({"doctype": "Team", "team_name": "GM Scorecard Team"}).insert()
+		frappe.get_doc(
+			{
+				"doctype": "Player",
+				"player_name": "GM Scorecard Admin",
+				"user": "Administrator",
+				"team": team.name,
+			}
+		).insert()
+		metric = frappe.get_doc(
+			{
+				"doctype": "EOS Metric",
+				"metric_name": "GM Scorecard Metric",
+				"owner": "Administrator",
+				"team": team.name,
+				"target_value": 100,
+				"operator": ">=",
+				"frequency": "Weekly",
+			}
+		).insert()
+		scorecard = frappe.db.get_value(
+			"Scorecard", {"team": team.name, "timeframe": "Weekly"}, "name"
+		)
+		self.assertTrue(scorecard)
+		self.assertEqual(metric.scorecard, scorecard)
+
+	def test_range_metric_validation(self):
+		with self.assertRaises(frappe.ValidationError):
+			frappe.get_doc(
+				{
+					"doctype": "EOS Metric",
+					"metric_name": "GM Range No Bound",
+					"owner": "Administrator",
+					"operator": "Inside min/max",
+					"frequency": "Weekly",
+				}
+			).insert()
+		with self.assertRaises(frappe.ValidationError):
+			frappe.get_doc(
+				{
+					"doctype": "EOS Metric",
+					"metric_name": "GM Range Min Above Max",
+					"owner": "Administrator",
+					"min_value": 100,
+					"max_value": 50,
+					"operator": "Inside min/max",
+					"frequency": "Weekly",
+				}
+			).insert()
+
+	def test_range_metric_status(self):
+		metric = frappe.get_doc(
+			{
+				"doctype": "EOS Metric",
+				"metric_name": "GM Range Status",
+				"owner": "Administrator",
+				"min_value": 80,
+				"max_value": 120,
+				"operator": "Inside min/max",
+				"frequency": "Weekly",
+			}
+		).insert()
+		metric.append("entries", {"week_start_date": "2026-09-07", "actual_value": 90})
+		metric.append("entries", {"week_start_date": "2026-09-14", "actual_value": 130})
+		metric.save()
+		self.assertEqual(metric.entries[0].status, "On Track")
+		self.assertEqual(metric.entries[1].status, "Off Track")
+
+	def test_formula_builder_computes_entries(self):
+		base = frappe.get_doc(
+			{
+				"doctype": "EOS Metric",
+				"metric_name": "GM Formula Base",
+				"owner": "Administrator",
+				"target_value": 50,
+				"operator": ">=",
+				"frequency": "Weekly",
+			}
+		).insert()
+		base.append("entries", {"week_start_date": "2026-09-07", "actual_value": 50})
+		base.append("entries", {"week_start_date": "2026-09-14", "actual_value": 60})
+		base.save()
+		smart = frappe.get_doc(
+			{
+				"doctype": "EOS Metric",
+				"metric_name": "GM Formula Smart",
+				"owner": "Administrator",
+				"is_smart": 1,
+				"formula": "{GM Formula Base} * 2",
+				"target_value": 100,
+				"operator": ">=",
+				"frequency": "Weekly",
+			}
+		)
+		smart.append("entries", {"week_start_date": "2026-09-07", "actual_value": 999})
+		smart.append(
+			"entries",
+			{"week_start_date": "2026-09-14", "actual_value": 999, "is_manual": 1},
+		)
+		smart.insert()
+		self.assertEqual(smart.entries[0].actual_value, 100.0)
+		self.assertEqual(smart.entries[0].status, "On Track")
+		self.assertEqual(smart.entries[1].actual_value, 999)
+
+	def test_formula_self_reference_rejected(self):
+		with self.assertRaises(frappe.ValidationError):
+			frappe.get_doc(
+				{
+					"doctype": "EOS Metric",
+					"metric_name": "GM Self Reference",
+					"owner": "Administrator",
+					"is_smart": 1,
+					"formula": "{GM Self Reference} + 1",
+					"frequency": "Weekly",
+				}
+			).insert()
+
 	def tearDown(self):
+		frappe.db.delete("Measurable Group")
+		frappe.db.delete("Scorecard")
 		frappe.db.delete("Scorecard Entry")
 		frappe.db.delete("EOS Metric")
 		frappe.db.delete("Player")

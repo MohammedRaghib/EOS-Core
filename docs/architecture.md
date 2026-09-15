@@ -21,14 +21,15 @@ Ninety is built around these tools:
 | Measurable / KPI | `EOS Metric` | A quantifiable metric with a target and orientation rule |
 | Score/Entry (a period's value) | `Scorecard Entry` | One record per reporting period (default weekly) |
 | Scorecard (Weekly/Monthly/Quarterly/Annual) | `frequency` on `EOS Metric` | A metric belongs to exactly one timeframe; you cannot convert it later |
-| Orientation rule (Greater than / Less than / Equal to / ranges) | `operator` on `EOS Metric` | `>=`, `<=`, `==` implemented; ranges are a roadmap extension |
+| Orientation rule (Greater than / Less than / Equal to / ranges) | `operator` on `EOS Metric` | `>=`, `<=`, `==`, `Inside min/max`, `Outside min/max` implemented |
 | Unit type (Number/Currency/Percentage/Yes/No/Time) | `unit_type` on `EOS Metric` | Display + rollup behaviour; permanent after data entry |
 | Rollup (Total/Average) | `rollup` on `EOS Metric` | How weekly values aggregate into Month/Quarter/Year views |
-| Groups | roadmap (Phase 3) | Up to 20 labelled groups per Scorecard |
+| Groups | `Measurable Group` (Phase 3) | Up to 20 labelled groups per Scorecard; linked from `EOS Metric.group` |
 | Team / Org levels (1–5) | `Organization` / `Team` / `Player` | One `Organization`, nested `Team`s (Leadership → Department → Team), `Player`s per team |
 | Status colors (green/yellow/red) | `status` + `compute_health` | `On Track` / `Off Track` stored; `Green/Yellow/Red` derived |
-| Off-track 3 weeks → Issue | roadmap (Phase 4/5) | Right-click "Make it an Issue" workflow |
-| Formula Builder (Smart Measurable) | roadmap (Phase 3) | Computed measurables referencing other measurables (max 25 vars) |
+| Off-track 3 weeks → Issue | `count_consecutive_off_track` (Phase 3) | Right-click "Make it an Issue" workflow (Phase 4) |
+| Formula Builder (Smart Measurable) | `is_smart` + `formula` on `EOS Metric` (Phase 3) | Computed measurables referencing other measurables via `{Name}` syntax (max 25 vars) |
+| Scorecard (Phase 3) | `Scorecard` DocType | `team` + `timeframe` combination; auto-created when team metric saved |
 
 ## 3. Data model (Phase 1 — implemented)
 
@@ -106,16 +107,73 @@ erDiagram
   its `owner` (a User) to have a `Player` record in that team. Metrics without `team` are
   organization-wide and skip the rule.
 
+## 3c. Scorecards, Groups & Formulas (Phase 3 — implemented)
+
+```mermaid
+erDiagram
+    "EOS Metric" }o--|| "Scorecard" : scorecard
+    "EOS Metric" }o--o| "Measurable Group" : group
+    "Measurable Group" }o--|| "Scorecard" : scorecard
+    "EOS Metric" ||--o{ "Scorecard Entry" : entries
+
+    "Scorecard" {
+        string name PK "format:{team}-{timeframe}"
+        string team FK "Team"
+        string timeframe "Weekly/Monthly/Quarterly/Annual"
+        string description
+        int archived
+    }
+
+    "Measurable Group" {
+        string name PK (hash)
+        string group_name "display name"
+        string scorecard FK "Scorecard"
+        int order
+        string description
+        int archived
+    }
+
+    "EOS Metric" {
+        string metric_name PK, UK
+        string scorecard FK "Scorecard (auto-created)"
+        string group FK "Measurable Group"
+        int is_smart "Formula Builder toggle"
+        string formula "{Name} * 2 style expressions"
+        float min_value "range lower bound"
+        float max_value "range upper bound"
+    }
+
+    "Scorecard Entry" {
+        int is_manual "skip formula recalc"
+    }
+```
+
+- `Scorecard` is one per team × timeframe. Auto-created when a team-scoped metric is saved
+  (`EOSMetric.ensure_scorecard`). Format autoname: `{team}-{timeframe}`.
+- `Measurable Group` organizes metrics within a Scorecard (up to 20 per scorecard, unique name per
+  scorecard). Not a Child DocType — Standard, so `EOS Metric.group` can link to it.
+- **Range operators**: `Inside min/max` (on-track when value within bounds), `Outside min/max`
+  (on-track when outside bounds). At least one of `min_value`/`max_value` required.
+- **Formula Builder** (`is_smart`): metric's `actual_value` is computed from other metrics'
+  entries via `{Metric Name}` syntax. Max 25 variables, same-timeframe only, no self-reference,
+  no archived variables. Retroactive recalc on save skips entries with `is_manual` checked.
+- **Validate order**: `validate_owner_team` → `validate_range_target` → `ensure_scorecard` →
+  `validate_group` → `validate_formula` → `apply_formula` → entry status loop.
+
 ## 4. Scoring engine (`eos_core/scorecard_engine.py`)
 
 Pure, frappe-free functions so they are trivially testable. Behaviour (defaults, all configurable):
 
 | Function | Signature | Behaviour |
 |---|---|---|
-| `compute_status` | `(target_value, actual_value, operator)` | `On Track`/`Off Track`. `>=` happy when actual ≥ target; `<=` happy when actual ≤ target; `==` happy on exact equality. Missing actual → `None`. Missing target → `On Track`. |
-| `compute_achievement` | `(target_value, actual_value, operator)` | Percent of goal, clamped to 0–100. `>=`: `actual/target*100`. `<=`: `target/actual*100`. `==`: `(1 - |actual-target|/|target|)*100`. Zero/no target → `None`. |
-| `compute_health` | `(target_value, actual_value, operator, tolerance=0.1)` | Ninety-style colour: `Green` (on target), `Yellow` (within `tolerance` of target), `Red` (off). |
+| `compute_status` | `(target_value, actual_value, operator, min_value=None, max_value=None)` | `On Track`/`Off Track`. Ranges: Inside = on-track within bounds; Outside = on-track outside bounds. `>=`: actual ≥ target. `<=`: actual ≤ target. `==`: exact equality. Missing actual → `None`. Missing target → `On Track`. |
+| `compute_achievement` | `(target_value, actual_value, operator, min_value=None, max_value=None)` | Percent of goal, clamped 0–100. Ranges: Inside = 100 in-range, else ratio to boundary. Outside = 100 outside, else distance-to-edge. |
+| `compute_health` | `(target_value, actual_value, operator, tolerance=0.1, min_value=None, max_value=None)` | Ninety-style colour: `Green` (on target), `Yellow` (within `tolerance` of target), `Red` (off). |
 | `aggregate_values` | `(values, rollup)` | `Total` = sum, `Average` = mean of numeric values; skips `None`. |
+| `extract_variables` | `(formula)` | Parses `{Name}` references from a formula string. Returns sorted list of names. |
+| `evaluate_formula` | `(formula, variables)` | Safe AST-based evaluator. `{Name}` vars replaced with floats, div-by-zero → `None`. Max 25 vars. |
+| `prorate_for_period` | `(value, covered_days, period_days)` | Prorates a value by coverage ratio, clamped 0–1. |
+| `count_consecutive_off_track` | `(statuses)` | Returns trailing count of consecutive `Off Track` entries from the end of the list. |
 
 Design notes:
 - Status is **computed once per period**, never cumulative/vs YTD (matches Ninety: each reporting
@@ -128,11 +186,16 @@ Design notes:
 
 ```
 eos_core/
-├── scorecard_engine.py          # pure logic (status, achievement, health, aggregation)
+├── scorecard_engine.py          # pure logic (status, achievement, health, aggregation, formulas)
 └── eos_core/                    # "Eos Core" module (per modules.txt)
     └── doctype/
-        ├── eos_metric/          # controller: EOSMetric.validate (auto-status + metric backfill)
-        └── scorecard_entry/     # controller: passive (pass)
+        ├── eos_metric/          # controller: validation + formula recalc
+        ├── scorecard_entry/     # controller: passive (pass)
+        ├── scorecard/           # controller: unique team+timeframe
+        ├── measurable_group/    # controller: 20-group cap + unique name per scorecard
+        ├── organization/        # organization root
+        ├── team/                # nested hierarchy with cycle/cross-org validation
+        └── player/              # person/seat mapped to Frappe User
 ```
 
 Keep this rule: **pure math in `scorecard_engine.py`, frappe glue in controllers.**
@@ -143,8 +206,9 @@ See `docs/roadmap.md` for status. The target model adds:
 
 - **Structure (Phase 2 — DONE)**: `Organization` → `Team` (nested) → `Player`; metrics scoped via
   `EOS Metric.team` with an owner-in-team rule.
-- **Scorecard/groups (Phase 3)**: `Scorecard` header (per team × timeframe), `Measurable Group`,
-  Formula Builder (Smart Measurables), forecasting/custom period goals, prorated rollup views.
+- **Scorecard/groups (Phase 3 — IN PROGRESS)**: `Scorecard` header (per team × timeframe), `Measurable Group`,
+  Formula Builder (Smart Measurables), `prorate_for_period`, `count_consecutive_off_track`.
+  Forecasting/custom period goals are deferred.
 - **EOS tools (Phase 4–5)**: V/TO, Rocks, To-Dos, Issues (IDS), Level 10 Meetings, reports.
 - **Permissions (Phase 6)**: map Ninety roles (Owner / Admin / Coach / Manager / Team Member /
   Observer) onto Frappe roles and DocPerm blocks.

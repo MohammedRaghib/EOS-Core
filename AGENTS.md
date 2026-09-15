@@ -49,27 +49,33 @@ apps/eos_core/
 │   ├── architecture.md          # domain + data model + scoring logic (READ FIRST)
 │   └── roadmap.md               # phases, statuses, and what to build next
 └── eos_core/
-    ├── scorecard_engine.py      # PURE functions: status/achievement/health/aggregation
+    ├── scorecard_engine.py      # PURE functions: status/achievement/health/aggregation/formulas
     └── eos_core/doctype/
         ├── eos_metric/          # EOS Metric (Standard) + Table field `entries`
-        └── scorecard_entry/     # Scorecard Entry (Child, istable=1)
+        ├── scorecard_entry/     # Scorecard Entry (Child, istable=1)
+        ├── scorecard/           # Scorecard (Standard, team × timeframe)
+        ├── measurable_group/    # Measurable Group (Standard, linked by metrics)
+        ├── organization/        # Organization (Standard)
+        ├── team/                # Team (Standard, nested hierarchy)
+        └── player/              # Player (Standard, person/seat)
 ```
 
 ## Current state (what is already done)
 
 | Area | DocType / module | Status |
 |---|---|---|
-| Metric master data | `EOS Metric` | DONE — `metric_name`, `owner`, `team`, `target_value`, `operator` (`>=`/`<=`/`==`), `frequency` (Weekly/Monthly/Quarterly/Annual), `unit`, `unit_type`, `rollup` (Total/Average), `archived`, `description`, `entries` |
-| Period records | `Scorecard Entry` | DONE — `metric`, `week_start_date`, `actual_value`, `status` (On Track/Off Track) |
-| Scoring engine | `eos_core.scorecard_engine` | DONE — `compute_status`, `compute_achievement`, `compute_health`, `aggregate_values` |
-| Auto-status | `EOSMetric.validate` | DONE — recomputes `entry.status` from parent target/operator on every save |
+| Metric master data | `EOS Metric` | DONE — `metric_name`, `owner`, `team`, `target_value`, `operator` (`>=`/`<=`/`==`/`Inside min/max`/`Outside min/max`), `min_value`, `max_value`, `frequency`, `unit`, `unit_type`, `rollup`, `is_smart`, `formula`, `scorecard`, `group`, `archived`, `description`, `entries` |
+| Period records | `Scorecard Entry` | DONE — `metric`, `week_start_date`, `actual_value`, `status` (On Track/Off Track), `is_manual` |
+| Scoring engine | `eos_core.scorecard_engine` | DONE — `compute_status`, `compute_achievement`, `compute_health`, `aggregate_values`, `extract_variables`, `evaluate_formula`, `prorate_for_period`, `count_consecutive_off_track` |
+| Auto-status + formulas | `EOSMetric.validate` | DONE — range validation, auto-create Scorecard, formula validation/recalc, entry status loop |
 | Org structure | `Organization` / `Team` / `Player` | DONE — nested teams (cycle + cross-org validation), players mapped to users |
-| Metric scoping | `EOSMetric.validate_owner_team` | DONE — team-scoped metrics require the owner user to be a Player in that team |
+| Scorecard header | `Scorecard` | DONE — `team` + `timeframe` (unique combo), format autoname, auto-created on metric save |
+| Measurable grouping | `Measurable Group` | DONE — `group_name`, `scorecard`, `order`; max 20 per scorecard, unique name per scorecard |
 
-Tests: `bench --site resolv.localhost run-tests --app eos_core` runs 11 tests (set `allow_tests true`
+Tests: `bench --site resolv.localhost run-tests --app eos_core` runs 27 tests (set `allow_tests true`
 first — already enabled on `resolv.localhost`).
 
-Permissions are System Manager only for now (fine for Phases 1–2; role model is Phase 6 in the roadmap).
+Permissions are System Manager only for now (role model is Phase 6 in the roadmap).
 
 ## Working conventions
 
@@ -84,7 +90,8 @@ Permissions are System Manager only for now (fine for Phases 1–2; role model i
 
 ## What to build next
 
-See `docs/roadmap.md`. Phase 3 (Scorecards, Groups & Formulas) is the natural next step: a
-`Scorecard` header per team × timeframe, `Measurable Group` children, and Formula Builder (Smart
-Measurables) on `EOS Metric`. Re-read the roadmap before starting so naming and data flow stay
-consistent with the architecture document.
+See `docs/roadmap.md`. Phase 3 (Scorecards, Groups & Formulas) is now in progress. Forecasting /
+custom period goals are deferred. Phase 4 (Meetings & Reporting) is the next major phase:
+Level 10 Meeting agenda, Issues from off-track measurables, and weekly scorecard reports.
+Re-read the roadmap before starting so naming and data flow stay consistent with the architecture
+document.

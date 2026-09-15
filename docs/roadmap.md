@@ -44,21 +44,19 @@ Organization → Leadership team → Department → Team → Individual.
 **Exit criteria (met):** org hierarchy usable (Organization → nested Teams), Players attached to
 teams and Users, metric creation scoped to a team, per-team list filters possible.
 
-## Phase 3 — Scorecards, Groups, Formulas `[ ]`
+## Phase 3 — Scorecards, Groups, Formulas `[~] IN PROGRESS`
 
-- [ ] Schema revision: range orientation rules (`Inside/Outside min/max`) on `EOS Metric`
+- [x] Schema revision: range orientation rules (`Inside/Outside min/max`) on `EOS Metric`
       (adds `min_value`/`max_value`)
-- [ ] `Scorecard` (Standard): `team`, `timeframe` (Weekly/Monthly/Quarterly/Annual) — one per team ×
-      timeframe; attach metrics via `Measurable Group`
-- [ ] `Measurable Group` (Child): name, `scorecard`, up to 20 groups per scorecard, order matters
-      (drives L10 review order)
-- [ ] Formula Builder (Smart Measurables): `formula` (Code) on `EOS Metric` (operators + parentheses,
-      variable = any maintained metric, max 25 vars, same-timeframe only, retroactive recalc,
-      manual override toggle)
+- [x] `Scorecard` (Standard): `team`, `timeframe` (Weekly/Monthly/Quarterly/Annual) — one per team ×
+      timeframe; attached via `EOS Metric.scorecard` (auto-created on metric save)
+- [x] `Measurable Group` (Standard): `group_name`, `scorecard` (Link→Scorecard), `order`, up to 20
+      groups per scorecard, order matters (drives L10 review order)
+- [x] Formula Builder (Smart Measurables): `formula` (Small Text, `{Name}` variable syntax) on
+      `EOS Metric`, `is_smart` toggle, `manual_override` on `Scorecard Entry`
 - [ ] Forecasting / custom period goals (per-period target overrides)
-- [ ] Rollup views: aggregate weekly entries to Month/Quarter/Year with prorating for split weeks and
-      `rollup` Total vs Average
-- [ ] Trends view: consecutive off-track detection (3+ weeks → eligible Issue)
+- [x] Rollup views: `prorate_for_period` helper for split-week proration; `rollup` Total vs Average
+- [x] Trends view: `count_consecutive_off_track` helper (3+ weeks → eligible Issue)
 
 ## Phase 4 — Meetings & Reporting `[ ]`
 

@@ -14,9 +14,13 @@ Ninety's data model and workflows built as a native Frappe app.
 - **Phase 1 — Scorecard Engine: DONE.** Metric + entry DocTypes, a pure-Python scoring engine, and
   automatic status derivation are implemented and synced to the database.
 - **Phase 2 — People & Structure: DONE.** `Organization`, `Team` (nested hierarchy with validation),
-  and `Player` DocTypes; `EOS Metric` is now team-scoped with an owner-in-team rule. 11 tests pass.
-- Phases 3–7 (scorecards/groups/formulas, meetings & reporting, V/TO & Rocks, permissions,
-  integrations) are **planned** — see `docs/roadmap.md`.
+  and `Player` DocTypes; `EOS Metric` is now team-scoped with an owner-in-team rule.
+- **Phase 3 — Scorecards, Groups & Formulas: IN PROGRESS.** Range operators (`Inside/Outside
+  min/max`), `Scorecard` (team × timeframe), `Measurable Group`, Formula Builder with `{Name}`
+  syntax, `prorate_for_period`, and `count_consecutive_off_track` helpers are implemented.
+  Forecasting/custom period goals are deferred. 27 tests pass.
+- Phases 4–7 (meetings & reporting, V/TO & Rocks, permissions, integrations) are **planned** —
+  see `docs/roadmap.md`.
 
 ## Who is this README for?
 
@@ -46,13 +50,15 @@ apps/eos_core/
 │   ├── architecture.md            # Domain model, data model, scoring logic
 │   └── roadmap.md                 # Phase-by-phase build plan + status
 └── eos_core/
-    ├── scorecard_engine.py        # Pure scoring/aggregation functions (no frappe deps)
+    ├── scorecard_engine.py        # Pure scoring/aggregation/formula functions (no frappe deps)
     ├── hooks.py
     ├── modules.txt                # Module: "Eos Core"
     └── eos_core/                  # Module directory ("Eos Core")
         └── doctype/
             ├── eos_metric/        # EOS Metric (Standard) + child Table `entries`
             ├── scorecard_entry/   # Scorecard Entry (Child, istable=1)
+            ├── scorecard/         # Scorecard (Standard, team × timeframe)
+            ├── measurable_group/  # Measurable Group (Standard, linked by metrics)
             ├── organization/      # Organization (Standard)
             ├── team/              # Team (Standard, nested hierarchy)
             └── player/            # Player (Standard, person/seat)
