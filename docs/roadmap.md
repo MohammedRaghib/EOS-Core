@@ -1,0 +1,90 @@
+# Roadmap — Eos Core (Ninety.io clone)
+
+Acknowledge-phase-by-phase build plan. **Update this file as the project moves**; it is the source
+of truth for what exists and what is next.
+
+Legend: `[x]` done, `[ ]` planned, `[~]` in progress
+
+## Phase 1 — Scorecard Engine `[x] DONE`
+
+Core data model and scoring logic for the "Data Component" of EOS.
+
+- [x] `EOS Metric` (Standard): `metric_name`, `owner`(Link→User), `target_value`, `operator`
+      (`>=`/`<=`/`==`), `frequency` (`Weekly`/`Monthly`/`Quarterly`/`Annual`), `unit`,
+      `unit_type` (Number/Currency/Percentage/Yes/No/Time), `rollup` (Total/Average), `archived`,
+      `description`
+- [x] `Scorecard Entry` (Child, `istable=1`): `metric`(Link→EOS Metric), `week_start_date`,
+      `actual_value`, `status` (`On Track`/`Off Track`)
+- [x] `entries` Table field on `EOS Metric` → `Scorecard Entry`
+- [x] `scorecard_engine.py`: `compute_status`, `compute_achievement`, `compute_health`,
+      `aggregate_values`
+- [x] Auto-status on save via `EOSMetric.validate`
+- [x] DocTypes registered in DB (migrate run); app installed on `resolv.localhost`
+
+**Definition of done (met):** create an `EOS Metric`, add `entries` with `actual_value`, save —
+entry statuses compute automatically; engine functions are importable and pure.
+
+## Phase 2 — People & Structure `[ ]`
+
+Ninety's five org levels so Measurables attach to teams and individuals:
+Organization → Leadership team → Department → Team → Individual.
+
+- [ ] `Organization` (Standard): name, default language, active (`archived`)
+- [ ] `Team` (Standard): name, `parent_team`(self-link, hierarchy), `leader`(Link→Player),
+      `organization`(Link→Organization)
+- [ ] `Player` (Standard): `user`(Link→User), `team`(Link→Team), `job_title`, `seat`/role
+- [ ] Rules: a metric owner must be a valid `Player`; a team may only belong to one chain
+- [ ] Add `team` Link to `EOS Metric` so metrics are scoped to an org level (backfilled null = global)
+
+**Exit:** org hierarchy usable; metric creation scoped to a team/player; list views per team.
+
+## Phase 3 — Scorecards, Groups, Formulas `[ ]`
+
+- [ ] Schema revision: range orientation rules (`Inside/Outside min/max`) on `EOS Metric`
+      (adds `min_value`/`max_value`)
+- [ ] `Scorecard` (Standard): `team`, `timeframe` (Weekly/Monthly/Quarterly/Annual) — one per team ×
+      timeframe; attach metrics via `Measurable Group`
+- [ ] `Measurable Group` (Child): name, `scorecard`, up to 20 groups per scorecard, order matters
+      (drives L10 review order)
+- [ ] Formula Builder (Smart Measurables): `formula` (Code) on `EOS Metric` (operators + parentheses,
+      variable = any maintained metric, max 25 vars, same-timeframe only, retroactive recalc,
+      manual override toggle)
+- [ ] Forecasting / custom period goals (per-period target overrides)
+- [ ] Rollup views: aggregate weekly entries to Month/Quarter/Year with prorating for split weeks and
+      `rollup` Total vs Average
+- [ ] Trends view: consecutive off-track detection (3+ weeks → eligible Issue)
+
+## Phase 4 — Meetings & Reporting `[ ]`
+
+- [ ] `Level 10 Meeting` agenda (Segue, Scorecard review, Good News, To-Dos, IDS, 123s of the week)
+- [ ] `Issue` from off-track measurable ("Make it an Issue"), IDS workflow (Identify/Discuss/Solve)
+- [ ] Weekly scorecard report (email/print, off-track summary, trends)
+
+## Phase 5 — EOS Operating System `[ ]`
+
+- [ ] `V/TO` (Vision/Traction Organizer): Core Focus, 10-Year Target, Marketing Strategy, 3-Year
+      Picture, 1-Year Plan, Quarterly Plan
+- [ ] `Rock` (90-day goal): company/team/individual rocks with head-down time, milestone tracking
+- [ ] `To Do`: assignee, due date, cascade/rollups to leadership
+- [ ] Quarterly review (1-on-1): pulls Rocks, To-Dos, and owned Measurables (green/red)
+
+## Phase 6 — Permissions & Roles `[ ]`
+
+- [ ] Map Ninety roles → Frappe roles: Owner, Admin, Coach/Implementer, Manager, Team Member (data
+      entry), Observer (read-only)
+- [ ] DocPerm blocks per DocType; Measurable Manager access restricted to Owner/Admin/Coach
+- [ ] Worksheet-level column visibility and status-color toggles (team-level settings)
+
+## Phase 7 — Integrations & Bulk UX `[ ]`
+
+- [ ] Import/export scorecards (XLSX/CSV), bulk paste, bulk archive/duplicate/share
+- [ ] Connectors (Jira, Salesforce, Google Sheets) via Webhook/ServerScript — design first
+
+## Contribution checklist (for every phase)
+
+1. Re-read this roadmap + `docs/architecture.md` to keep names/data flow consistent.
+2. Scaffold DocTypes under `eos_core/eos_core/eos_core/doctype/<name>/` (v16 layout).
+3. Keep pure logic in `scorecard_engine.py`; thin controllers otherwise. No comments/docstrings.
+4. Run `bench --site resolv.localhost migrate` and verify registration.
+5. Add tests under each doctype dir (`test_<name>.py`) and run `bench run-tests --app eos_core`.
+6. Update this roadmap (checkbox) and `docs/architecture.md` (terminology + model).

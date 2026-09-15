@@ -1,33 +1,66 @@
-### Eos Core
+# Eos Core
 
-Ninety IO frappe replica
+A Frappe (v16) re-implementation of the **Ninety.io** app — the software implementation of the
+EOS (Entrepreneurial Operating System) from *Traction*. This repository is a from-scratch clone of
+Ninety's data model and workflows built as a native Frappe app.
 
-### Installation
+> Note: Ninety's product language has one gap vs. this codebase: Ninety calls a metric a
+> **Measurable** and the roll-up board a **Scorecard**. Here (per an earlier product decision) the
+> metric DocType is **EOS Metric** and each period record is a **Scorecard Entry**. The mapping is
+> documented in `docs/architecture.md`.
 
-You can install this app using the [bench](https://github.com/frappe/bench) CLI:
+## Status
+
+- **Phase 1 — Scorecard Engine: DONE.** Two DocTypes, a pure-Python scoring engine, and automatic
+  status derivation are implemented and synced to the database.
+- Phases 2–6 (org hierarchy, V/TO, Rocks, To-Dos, Issues, Meetings, permissions, reporting) are
+  **planned** — see `docs/roadmap.md`.
+
+## Who is this README for?
+
+- If you are a human: read `docs/architecture.md` then `docs/roadmap.md`.
+- If you are an AI agent about to work on this repo: read `AGENTS.md` first — it tells you the
+  conventions, exact bench commands, and current state so you can pick up without poking around.
+
+## Installation
 
 ```bash
 cd $PATH_TO_YOUR_BENCH
 bench get-app $URL_OF_THIS_REPO --branch version-16
-bench install-app eos_core
+bench --site YOUR_SITE install-app eos_core
+bench --site YOUR_SITE migrate
 ```
 
-### Contributing
+The DocTypes register with the database on `install-app` (which runs a migrate internally); run
+`bench migrate` any time a `*.json` schema under `eos_core/.../doctype/` changes.
 
-This app uses `pre-commit` for code formatting and linting. Please [install pre-commit](https://pre-commit.com/#installation) and enable it for this repository:
+## Repository layout
 
-```bash
-cd apps/eos_core
-pre-commit install
+```
+apps/eos_core/
+├── AGENTS.md                      # Hand-off guide for AI agents (read this first)
+├── README.md                      # This file
+├── docs/
+│   ├── architecture.md            # Domain model, data model, scoring logic
+│   └── roadmap.md                 # Phase-by-phase build plan + status
+└── eos_core/
+    ├── scorecard_engine.py        # Pure scoring/aggregation functions (no frappe deps)
+    ├── hooks.py
+    ├── modules.txt                # Module: "Eos Core"
+    └── eos_core/                  # Module directory ("Eos Core")
+        └── doctype/
+            ├── eos_metric/        # EOS Metric (Standard) + child Table `entries`
+            └── scorecard_entry/   # Scorecard Entry (Child, istable=1)
 ```
 
-Pre-commit is configured to use the following tools for checking and formatting your code:
+## Conventions (mandatory)
 
-- ruff
-- eslint
-- prettier
-- pyupgrade
+- **No code comments or docstrings** in any Python or JavaScript files. Intent goes in the docs
+  and in self-explanatory naming.
+- DocTypes live in `eos_core/eos_core/eos_core/doctype/<scrubbed_name>/` using Frappe v16's layout
+  (no `*_doctype` suffix). See the `resolv` app in this bench for the reference layout.
+- After editing any `*.json` schema: run `bench migrate` and verify with `bench list-doctypes -a`.
 
-### License
+## License
 
 mit
