@@ -1,17 +1,28 @@
 import ast
 import re
 
-MAX_FORMULA_VARIABLES = 25
+MAX_FORMULA_VARIABLES = 24
 VARIABLE_PATTERN = re.compile(r"{([^{}\n]+)}")
 _SAFE_EXPRESSION = re.compile(r"^[\d\.\+\-\*\/\(\)\%\s]+$")
 
+_COMPARISON_OPERATORS = (">=", "<=", "==")
+_RANGE_OPERATORS = ("Inside min/max", "Outside min/max")
+_STATUS_ORDER_NONE = None
+_STATUS_ORDERS = {"Off Track", "On Track"}
+
+RANGE_OPERATORS = _RANGE_OPERATORS
+ALL_OPERATORS = _COMPARISON_OPERATORS + _RANGE_OPERATORS
+MATCHLESS_OPERATORS = ("==",)
+
+SmartMetricStatus = {"Green", "Yellow", "Red"}
+
 
 def compute_status(target_value, actual_value, operator, min_value=None, max_value=None):
+	if operator in _RANGE_OPERATORS:
+		return _range_status(actual_value, operator, min_value, max_value)
 	if actual_value is None:
 		return None
-	if operator in ("Inside min/max", "Outside min/max"):
-		return "On Track" if _range_satisfied(actual_value, operator, min_value, max_value) else "Off Track"
-	if target_value is None:
+	if target_value is None or target_value == 0:
 		return "On Track"
 	if operator == ">=":
 		return "On Track" if actual_value >= target_value else "Off Track"
@@ -25,7 +36,7 @@ def compute_status(target_value, actual_value, operator, min_value=None, max_val
 def compute_achievement(target_value, actual_value, operator, min_value=None, max_value=None):
 	if actual_value is None:
 		return None
-	if operator in ("Inside min/max", "Outside min/max"):
+	if operator in _RANGE_OPERATORS:
 		return _range_achievement(actual_value, operator, min_value, max_value)
 	if target_value is None or target_value == 0:
 		return None
@@ -38,49 +49,17 @@ def compute_achievement(target_value, actual_value, operator, min_value=None, ma
 	return None
 
 
-def compute_health(
-	target_value, actual_value, operator, tolerance=0.1, min_value=None, max_value=None
-):
+def compute_health(target_value, actual_value, operator, tolerance=0.1, min_value=None, max_value=None):
 	if actual_value is None:
 		return None
-	if operator == "Inside min/max":
-		if min_value is None and max_value is None:
-			return None
-		if _range_satisfied(actual_value, operator, min_value, max_value):
-			return "Green"
-		if min_value is not None and actual_value < min_value:
-			ratio = actual_value / min_value if min_value else 0.0
-			return "Yellow" if ratio >= 1 - tolerance else "Red"
-		if max_value is not None and actual_value > max_value:
-			ratio = max_value / actual_value if actual_value else 0.0
-			return "Yellow" if ratio >= 1 - tolerance else "Red"
-		return None
-	if operator == "Outside min/max":
-		if _range_satisfied(actual_value, operator, min_value, max_value):
-			return "Green"
-		if min_value is not None and max_value is not None:
-			width = max_value - min_value
-			if width <= 0:
-				return "Red"
-			distance = min(actual_value - min_value, max_value - actual_value)
-			return "Yellow" if distance / width <= tolerance else "Red"
-		if min_value is not None:
-			return "Yellow" if actual_value <= min_value * (1 + tolerance) else "Red"
-		if max_value is not None:
-			return "Yellow" if actual_value >= max_value * (1 - tolerance) else "Red"
-		return None
+	if operator in _RANGE_OPERATORS:
+		return _range_health(actual_value, operator, tolerance, min_value, max_value)
 	if target_value is None or target_value == 0:
 		return None
 	if operator == ">=":
-		ratio = actual_value / target_value
-		if ratio >= 1:
-			return "Green"
-		return "Yellow" if ratio >= 1 - tolerance else "Red"
+		return _health_by_gap(actual_value - target_value, target_value, tolerance)
 	if operator == "<=":
-		ratio = actual_value / target_value
-		if ratio <= 1:
-			return "Green"
-		return "Yellow" if ratio <= 1 + tolerance else "Red"
+		return _health_by_gap(target_value - actual_value, target_value, tolerance)
 	if operator == "==":
 		deviation = abs(target_value - actual_value) / abs(target_value)
 		if deviation == 0:
@@ -107,50 +86,6 @@ def extract_variables(formula):
 	return sorted(variables)
 
 
-def evaluate_formula(formula, variables):
-	if not formula:
-		return None
-	tokens = extract_variables(formula)
-	if len(tokens) > MAX_FORMULA_VARIABLES:
-		return None
-	payload = formula
-	for token in tokens:
-		value = variables.get(token)
-		if value is None:
-			return None
-		payload = payload.replace("{" + token + "}", str(float(value)))
-	if not _SAFE_EXPRESSION.match(payload):
-		return None
-	try:
-		tree = ast.parse(payload, mode="eval")
-	except SyntaxError:
-		return None
-	for node in ast.walk(tree):
-		if isinstance(node, ast.Name):
-			return None
-	try:
-		return eval(compile(tree, "<formula>", "eval"), {"__builtins__": {}})
-	except Exception:
-		return None
-
-
-def prorate_for_period(value, covered_days, period_days):
-	if value is None or not period_days or period_days <= 0:
-		return None
-	ratio = min(1.0, max(0.0, covered_days / period_days))
-	return value * ratio
-
-
-def count_consecutive_off_track(statuses):
-	count = 0
-	for status in reversed(list(statuses)):
-		if status == "Off Track":
-			count += 1
-		else:
-			break
-	return count
-
-
 def scorecard_summary(statuses):
 	total = len(statuses)
 	on_track = sum(1 for status in statuses if status == "On Track")
@@ -173,30 +108,45 @@ def default_agenda_sections():
 	]
 
 
-def build_scorecard_report(metric_blocks, trend_threshold=3):
-	metrics = []
-	for block in metric_blocks:
-		consecutive = count_consecutive_off_track(block.get("statuses", []))
-		metrics.append(
-			{
-				"name": block.get("name"),
-				"group": block.get("group"),
-				"owner": block.get("owner"),
-				"actual": block.get("actual"),
-				"target": block.get("target"),
-				"operator": block.get("operator"),
-				"unit": block.get("unit"),
-				"status": block.get("status"),
-				"consecutive_off_track": consecutive,
-			}
-		)
-	summary = scorecard_summary([metric["status"] for metric in metrics])
-	trends = [
-		{"name": metric["name"], "consecutive_off_track": metric["consecutive_off_track"]}
-		for metric in metrics
-		if metric["consecutive_off_track"] >= trend_threshold
-	]
-	return {"metrics": metrics, "summary": summary, "trends": trends}
+def _range_status(actual_value, operator, min_value, max_value):
+	if operator == "Inside min/max":
+		if min_value is None and max_value is None:
+			return None
+		if _range_satisfied(actual_value, operator, min_value, max_value):
+			return "On Track"
+		return "Off Track"
+	if operator == "Outside min/max":
+		if min_value is None and max_value is None:
+			return None
+		if _range_satisfied(actual_value, operator, min_value, max_value):
+			return "On Track"
+		return "Off Track"
+	return None
+
+
+def _range_health(actual_value, operator, tolerance, min_value, max_value):
+	if operator == "Inside min/max":
+		if min_value is None and max_value is None:
+			return None
+		if _range_satisfied(actual_value, operator, min_value, max_value):
+			return "Green"
+		if min_value is not None and actual_value < min_value:
+			ratio = actual_value / min_value if min_value else 0.0
+			return "Yellow" if ratio >= 1 - tolerance else "Red"
+		if max_value is not None and actual_value > max_value:
+			ratio = max_value / actual_value if actual_value else 0.0
+			return "Yellow" if ratio >= 1 - tolerance else "Red"
+		return None
+	if operator == "Outside min/max":
+		if min_value is None and max_value is None:
+			return None
+		if _range_satisfied(actual_value, operator, min_value, max_value):
+			return "Yellow"
+		if min_value is not None and max_value is not None:
+			width = max_value - min_value
+			return "Red" if width and (actual_value - min_value) / width > tolerance else None
+		return "Red"
+	return None
 
 
 def _range_satisfied(actual_value, operator, min_value, max_value):
@@ -229,21 +179,162 @@ def _range_achievement(actual_value, operator, min_value, max_value):
 	if operator == "Outside min/max":
 		if min_value is None and max_value is None:
 			return None
-		if _range_satisfied(actual_value, operator, min_value, max_value):
-			return 100.0
+		if not _range_satisfied(actual_value, operator, min_value, max_value):
+			return 0.0
 		if min_value is not None and max_value is not None:
-			mid = (min_value + max_value) / 2
-			half = (max_value - min_value) / 2
-			if half == 0:
+			width = max_value - min_value
+			if width <= 0:
 				return 0.0
-			return _clamp(abs(actual_value - mid) / half * 100)
+			return _clamp(abs((actual_value - min_value) / width) * 100)
 		if min_value is not None:
-			return _clamp(min_value / actual_value * 100) if min_value else 0.0
+			return _clamp(actual_value / min_value * 100) if min_value else 0.0
 		if max_value is not None:
-			return _clamp(actual_value / max_value * 100) if max_value else 0.0
+			return _clamp(max_value / actual_value * 100) if max_value else 0.0
 		return None
 	return None
 
 
+def count_consecutive_off_track(statuses):
+	count = 0
+	for status in reversed(list(statuses)):
+		if status == "Off Track":
+			count += 1
+		else:
+			break
+	return count
+
+
+def build_scorecard_report(metric_blocks, trend_threshold=3):
+	metrics = []
+	for block in metric_blocks:
+		consecutive = count_consecutive_off_track(block.get("statuses", []))
+		metrics.append(
+			{
+				"name": block.get("name"),
+				"group": block.get("group"),
+				"owner": block.get("owner"),
+				"actual": block.get("actual"),
+				"target": block.get("target"),
+				"operator": block.get("operator"),
+				"unit": block.get("unit"),
+				"status": block.get("status"),
+				"consecutive_off_track": consecutive,
+			}
+		)
+	summary = scorecard_summary([metric["status"] for metric in metrics])
+	trends = [
+		{"name": metric["name"], "consecutive_off_track": metric["consecutive_off_track"]}
+		for metric in metrics
+		if metric["consecutive_off_track"] >= trend_threshold
+	]
+	return {"metrics": metrics, "summary": summary, "trends": trends}
+
+
+def _health_by_gap(gap, target_value, tolerance):
+	if gap >= 0:
+		return "Green"
+	ratio = abs(gap) / abs(target_value)
+	return "Yellow" if ratio <= tolerance else "Red"
+
+
 def _clamp(value):
 	return min(100.0, max(0.0, value))
+
+
+def quarter_bounds(anchor):
+	month = getattr(anchor, "month", None)
+	if month is None:
+		return (None, None)
+	year = getattr(anchor, "year", None)
+	if year is None:
+		return (None, None)
+	quarter_month = ((month - 1) // 3) * 3 + 1
+	start = _quarter_start(year, quarter_month)
+	end = _quarter_end(start)
+	return start, end
+
+
+def rollup_rock_summary(rock_rows):
+	total = len(rock_rows)
+	active = sum(1 for rock in rock_rows if rock.get("status") not in ("Complete", "Dropped"))
+	complete = sum(1 for rock in rock_rows if rock.get("status") == "Complete")
+	progress_values = [rock["progress"] for rock in rock_rows if rock.get("progress") is not None]
+	avg_progress = round(sum(progress_values) / len(progress_values), 1) if progress_values else 0
+	return {
+		"total": total,
+		"active": active,
+		"complete": complete,
+		"average_progress": avg_progress,
+	}
+
+
+def rollup_todo_summary(todo_rows):
+	total = len(todo_rows)
+	open_todos = sum(1 for todo in todo_rows if todo.get("status") not in ("Complete", "Dropped"))
+	complete = sum(1 for todo in todo_rows if todo.get("status") == "Complete")
+	overdue = 0
+	for todo in todo_rows:
+		if todo.get("status") in ("Complete", "Dropped"):
+			continue
+		if todo.get("due_date") and todo["due_date"] < _today():
+			overdue += 1
+	return {
+		"total": total,
+		"open": open_todos,
+		"complete": complete,
+		"overdue": overdue,
+	}
+
+
+def build_quarterly_review(rock_rows, todo_rows, measurable_rows):
+	rocks = rollup_rock_summary(rock_rows)
+	todos = rollup_todo_summary(todo_rows)
+	measurable_statuses = [
+		measurable.get("status")
+		for measurable in measurable_rows
+		if measurable.get("status") in ("On Track", "Off Track")
+	]
+	measurables = scorecard_summary(measurable_statuses)
+	return {
+		"rocks": rocks,
+		"todos": todos,
+		"measurables": measurables,
+	}
+
+
+def _quarter_start(year, quarter_month):
+	return _date(year, quarter_month, 1)
+
+
+def _quarter_end(start):
+	month = start.month
+	next_month = month + 3
+	year = start.year
+	if next_month > 12:
+		next_month -= 12
+		year += 1
+	return _last_day_of_month(year, next_month)
+
+
+def _last_day_of_month(year, month):
+	if month == 12:
+		return _date(year, 12, 31)
+	return _date(year, month + 1, 1) - _timedelta_one_day()
+
+
+def _timedelta_one_day():
+	import datetime as _dt
+
+	return _dt.timedelta(days=1)
+
+
+def _date(year, month, day):
+	import datetime as _dt
+
+	return _dt.date(year, month, day)
+
+
+def _today():
+	import datetime as _dt
+
+	return _dt.date.today()

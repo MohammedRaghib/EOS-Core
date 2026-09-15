@@ -1,0 +1,39 @@
+{
+ "actions": [],
+ "creation": "2026-09-15 10:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "purpose",
+  "niche",
+  "ten_year_target"
+ ],
+ "fields": [
+  {
+   "fieldname": "purpose",
+   "fieldtype": "Small Text",
+   "label": "Purpose / Cause / Passion"
+  },
+  {
+   "fieldname": "niche",
+   "fieldtype": "Small Text",
+   "label": "Niche (Who You Serve)"
+  },
+  {
+   "fieldname": "ten_year_target",
+   "fieldtype": "Small Text",
+   "label": "10-Year Target"
+  }
+ ],
+ "index_web_search_results": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-15 10:00:00",
+ "module": "eos_core",
+ "name": "VTO Core Focus",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

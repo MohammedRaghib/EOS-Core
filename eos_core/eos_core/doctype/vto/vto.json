@@ -1,0 +1,78 @@
+{
+ "actions": [],
+ "creation": "2026-09-15 10:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "organization",
+  "core_focus",
+  "marketing_strategy",
+  "three_year_picture",
+  "one_year_plan",
+  "quarterly_rocks",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "organization",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Organization",
+   "options": "Organization",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "core_focus",
+   "fieldtype": "Table",
+   "label": "Profile: Core Focus",
+   "options": "VTO Core Focus"
+  },
+  {
+   "fieldname": "marketing_strategy",
+   "fieldtype": "Table",
+   "label": "Marketing Strategy",
+   "options": "VTO Marketing Strategy"
+  },
+  {
+   "fieldname": "three_year_picture",
+   "fieldtype": "Table",
+   "label": "3-Year Picture",
+   "options": "VTO 3 Year Picture"
+  },
+  {
+   "fieldname": "one_year_plan",
+   "fieldtype": "Table",
+   "label": "1-Year Plan",
+   "options": "VTO 1 Year Plan"
+  },
+  {
+   "fieldname": "quarterly_rocks",
+   "fieldtype": "Table",
+   "label": "Quarterly Rocks",
+   "options": "VTO Quarterly Rocks"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "print_hide": 1,
+   "options": "VTO",
+   "read_only": 1
+  }
+ ],
+ "index_web_search_results": 0,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-09-15 10:00:00",
+ "module": "eos_core",
+ "name": "VTO",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

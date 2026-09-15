@@ -1,0 +1,99 @@
+{
+ "actions": [],
+ "autoname": "format:TD-{todo_name}",
+ "creation": "2026-09-15 10:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "todo_name",
+  "status",
+  "owner_user",
+  "team",
+  "rock",
+  "due_date",
+  "priority",
+  "items",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "todo_name",
+   "fieldtype": "Data",
+   "label": "To-Do Name",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Not Started\nIn Progress\nComplete\nDropped",
+   "default": "Not Started",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "owner_user",
+   "fieldtype": "Link",
+   "label": "Owner",
+   "options": "User",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Team",
+   "options": "Team"
+  },
+  {
+   "fieldname": "rock",
+   "fieldtype": "Link",
+   "label": "Rock",
+   "options": "Rock"
+  },
+  {
+   "fieldname": "due_date",
+   "fieldtype": "Date",
+   "label": "Due Date",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Low\nMedium\nHigh",
+   "default": "Medium"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Checklist Items",
+   "options": "To Do Item"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_search_results": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-09-15 12:00:00",
+ "module": "eos_core",
+ "name": "To Do",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

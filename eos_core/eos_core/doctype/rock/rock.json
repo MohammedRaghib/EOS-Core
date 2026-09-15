@@ -1,0 +1,121 @@
+{
+ "actions": [],
+ "autoname": "format:R-{rock_name}",
+ "creation": "2026-09-15 10:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "rock_name",
+  "status",
+  "owner_user",
+  "scope",
+  "team",
+  "section_duration",
+  "duration_start",
+  "duration_end",
+  "head_down_hours_per_week",
+  "milestones",
+  "section_notes",
+  "notes",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "rock_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Rock Name",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Not Started\nIn Progress\nComplete\nDropped",
+   "default": "Not Started"
+  },
+  {
+   "fieldname": "owner_user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Owner",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "scope",
+   "fieldtype": "Select",
+   "label": "Scope",
+   "options": "Company\nTeam\nIndividual",
+   "default": "Company"
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Team",
+   "options": "Team"
+  },
+  {
+   "fieldname": "section_duration",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "duration_start",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Start Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "duration_end",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "End Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "head_down_hours_per_week",
+   "fieldtype": "Int",
+   "label": "Head-Down Hours/Week"
+  },
+  {
+   "fieldname": "milestones",
+   "fieldtype": "Table",
+   "label": "Milestones",
+   "options": "Rock Milestone"
+  },
+  {
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "print_hide": 1,
+   "options": "Rock",
+   "read_only": 1
+  }
+ ],
+ "index_web_search_results": 0,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-09-15 10:00:00",
+ "module": "eos_core",
+ "name": "Rock",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "rock_name",
+ "track_changes": 1
+}
