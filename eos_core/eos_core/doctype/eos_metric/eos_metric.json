@@ -9,6 +9,7 @@
  "field_order": [
   "metric_name",
   "owner",
+  "team",
   "column_break_section",
   "target_value",
   "operator",
@@ -37,6 +38,13 @@
    "label": "Owner",
    "options": "User",
    "reqd": 1
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Team",
+   "options": "Team"
   },
   {
    "fieldname": "column_break_section",

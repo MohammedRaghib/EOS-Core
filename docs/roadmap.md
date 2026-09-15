@@ -24,19 +24,25 @@ Core data model and scoring logic for the "Data Component" of EOS.
 **Definition of done (met):** create an `EOS Metric`, add `entries` with `actual_value`, save —
 entry statuses compute automatically; engine functions are importable and pure.
 
-## Phase 2 — People & Structure `[ ]`
+## Phase 2 — People & Structure `[x] DONE`
 
 Ninety's five org levels so Measurables attach to teams and individuals:
 Organization → Leadership team → Department → Team → Individual.
 
-- [ ] `Organization` (Standard): name, default language, active (`archived`)
-- [ ] `Team` (Standard): name, `parent_team`(self-link, hierarchy), `leader`(Link→Player),
-      `organization`(Link→Organization)
-- [ ] `Player` (Standard): `user`(Link→User), `team`(Link→Team), `job_title`, `seat`/role
-- [ ] Rules: a metric owner must be a valid `Player`; a team may only belong to one chain
-- [ ] Add `team` Link to `EOS Metric` so metrics are scoped to an org level (backfilled null = global)
+- [x] `Organization` (Standard): `organization_name`, `default_language`, `archived`
+- [x] `Team` (Standard): `team_name`, `parent_team` (self-link, hierarchy), `leader` (Link→Player),
+      `organization` (Link→Organization), `archived`
+- [x] `Player` (Standard): `player_name`, `user` (Link→User), `team` (Link→Team), `job_title`,
+      `seat`
+- [x] Rules:
+      - `Team.validate` rejects parent cycles and cross-organization parents
+      - `EOSMetric.validate_owner_team`: when a metric is team-scoped its `owner` user must have a
+        Player in that team (org-wide metrics with no `team` skip the rule)
+- [x] `team` Link added to `EOS Metric` (null = organization-wide/global)
+- [x] Tests: `test_team.py` (3), `test_eos_metric.py` (2); engine unit tests (6) — all green
 
-**Exit:** org hierarchy usable; metric creation scoped to a team/player; list views per team.
+**Exit criteria (met):** org hierarchy usable (Organization → nested Teams), Players attached to
+teams and Users, metric creation scoped to a team, per-team list filters possible.
 
 ## Phase 3 — Scorecards, Groups, Formulas `[ ]`
 

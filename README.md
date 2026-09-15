@@ -11,10 +11,12 @@ Ninety's data model and workflows built as a native Frappe app.
 
 ## Status
 
-- **Phase 1 — Scorecard Engine: DONE.** Two DocTypes, a pure-Python scoring engine, and automatic
-  status derivation are implemented and synced to the database.
-- Phases 2–6 (org hierarchy, V/TO, Rocks, To-Dos, Issues, Meetings, permissions, reporting) are
-  **planned** — see `docs/roadmap.md`.
+- **Phase 1 — Scorecard Engine: DONE.** Metric + entry DocTypes, a pure-Python scoring engine, and
+  automatic status derivation are implemented and synced to the database.
+- **Phase 2 — People & Structure: DONE.** `Organization`, `Team` (nested hierarchy with validation),
+  and `Player` DocTypes; `EOS Metric` is now team-scoped with an owner-in-team rule. 11 tests pass.
+- Phases 3–7 (scorecards/groups/formulas, meetings & reporting, V/TO & Rocks, permissions,
+  integrations) are **planned** — see `docs/roadmap.md`.
 
 ## Who is this README for?
 
@@ -50,7 +52,10 @@ apps/eos_core/
     └── eos_core/                  # Module directory ("Eos Core")
         └── doctype/
             ├── eos_metric/        # EOS Metric (Standard) + child Table `entries`
-            └── scorecard_entry/   # Scorecard Entry (Child, istable=1)
+            ├── scorecard_entry/   # Scorecard Entry (Child, istable=1)
+            ├── organization/      # Organization (Standard)
+            ├── team/              # Team (Standard, nested hierarchy)
+            └── player/            # Player (Standard, person/seat)
 ```
 
 ## Conventions (mandatory)

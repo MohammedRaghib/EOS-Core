@@ -59,12 +59,17 @@ apps/eos_core/
 
 | Area | DocType / module | Status |
 |---|---|---|
-| Metric master data | `EOS Metric` | DONE — `metric_name`, `owner`, `target_value`, `operator` (`>=`/`<=`/`==`), `frequency` (Weekly/Monthly/Quarterly/Annual), `unit`, `unit_type`, `rollup` (Total/Average), `archived`, `description`, `entries` |
+| Metric master data | `EOS Metric` | DONE — `metric_name`, `owner`, `team`, `target_value`, `operator` (`>=`/`<=`/`==`), `frequency` (Weekly/Monthly/Quarterly/Annual), `unit`, `unit_type`, `rollup` (Total/Average), `archived`, `description`, `entries` |
 | Period records | `Scorecard Entry` | DONE — `metric`, `week_start_date`, `actual_value`, `status` (On Track/Off Track) |
 | Scoring engine | `eos_core.scorecard_engine` | DONE — `compute_status`, `compute_achievement`, `compute_health`, `aggregate_values` |
 | Auto-status | `EOSMetric.validate` | DONE — recomputes `entry.status` from parent target/operator on every save |
+| Org structure | `Organization` / `Team` / `Player` | DONE — nested teams (cycle + cross-org validation), players mapped to users |
+| Metric scoping | `EOSMetric.validate_owner_team` | DONE — team-scoped metrics require the owner user to be a Player in that team |
 
-Permissions are System Manager only for now (fine for Phase 1; role model is Phase 6 in the roadmap).
+Tests: `bench --site resolv.localhost run-tests --app eos_core` runs 11 tests (set `allow_tests true`
+first — already enabled on `resolv.localhost`).
+
+Permissions are System Manager only for now (fine for Phases 1–2; role model is Phase 6 in the roadmap).
 
 ## Working conventions
 
@@ -79,6 +84,7 @@ Permissions are System Manager only for now (fine for Phase 1; role model is Pha
 
 ## What to build next
 
-See `docs/roadmap.md`. Phase 2 (People & Structure) is the natural next step: `Organization`,
-`Team`, `Player` DocTypes so Measurables can be tied to org levels. Re-read the roadmap before
-starting so naming and data flow stay consistent with the architecture document.
+See `docs/roadmap.md`. Phase 3 (Scorecards, Groups & Formulas) is the natural next step: a
+`Scorecard` header per team × timeframe, `Measurable Group` children, and Formula Builder (Smart
+Measurables) on `EOS Metric`. Re-read the roadmap before starting so naming and data flow stay
+consistent with the architecture document.

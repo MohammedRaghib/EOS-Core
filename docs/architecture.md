@@ -25,7 +25,7 @@ Ninety is built around these tools:
 | Unit type (Number/Currency/Percentage/Yes/No/Time) | `unit_type` on `EOS Metric` | Display + rollup behaviour; permanent after data entry |
 | Rollup (Total/Average) | `rollup` on `EOS Metric` | How weekly values aggregate into Month/Quarter/Year views |
 | Groups | roadmap (Phase 3) | Up to 20 labelled groups per Scorecard |
-| Team / Org levels (1–5) | roadmap (Phase 2) | Organization → Leadership → Department → Team → Individual |
+| Team / Org levels (1–5) | `Organization` / `Team` / `Player` | One `Organization`, nested `Team`s (Leadership → Department → Team), `Player`s per team |
 | Status colors (green/yellow/red) | `status` + `compute_health` | `On Track` / `Off Track` stored; `Green/Yellow/Red` derived |
 | Off-track 3 weeks → Issue | roadmap (Phase 4/5) | Right-click "Make it an Issue" workflow |
 | Formula Builder (Smart Measurable) | roadmap (Phase 3) | Computed measurables referencing other measurables (max 25 vars) |
@@ -63,6 +63,49 @@ erDiagram
 - Naming: `EOS Metric` is named by `metric_name` (`autoname: field:metric_name`). Child table
   records use Frappe's default hash naming.
 
+## 3b. People & Structure (Phase 2 — implemented)
+
+```mermaid
+erDiagram
+    Organization ||--o{ Team : teams
+    Team ||--o{ Team : parent_team
+    Team ||--o{ Player : players
+    Team ||--o{ "EOS Metric" : metrics
+    Player }o--|| User : maps_to
+
+    Organization {
+        string organization_name
+        string default_language
+        int archived
+    }
+
+    Team {
+        string team_name
+        string organization FK "Organization"
+        string parent_team FK "Team"
+        string leader FK "Player"
+        int archived
+    }
+
+    Player {
+        string player_name
+        string user FK "User"
+        string team FK "Team"
+        string job_title
+        string seat
+    }
+```
+
+- `Organization` is the top-level root (Ninety level 1). `Team` recurses via `parent_team` to model
+  the five org levels (`Organization` → Leadership → Department → Team → Individual).
+- `Player` is a person in a seat; `Player.user` maps to a Frappe login (a user may hold multiple
+  seats).
+- **Team rules** (`Team.validate_parent_team`): rejects a parent chain that loops back to the team,
+  and rejects a parent whose `Organization` differs from the child's.
+- **Metric scoping rule** (`EOSMetric.validate_owner_team`): an `EOS Metric` with `team` set requires
+  its `owner` (a User) to have a `Player` record in that team. Metrics without `team` are
+  organization-wide and skip the rule.
+
 ## 4. Scoring engine (`eos_core/scorecard_engine.py`)
 
 Pure, frappe-free functions so they are trivially testable. Behaviour (defaults, all configurable):
@@ -98,7 +141,8 @@ Keep this rule: **pure math in `scorecard_engine.py`, frappe glue in controllers
 
 See `docs/roadmap.md` for status. The target model adds:
 
-- **Structure (Phase 2)**: `Organization` → `Team` → `Player`. Every level owns scorecards.
+- **Structure (Phase 2 — DONE)**: `Organization` → `Team` (nested) → `Player`; metrics scoped via
+  `EOS Metric.team` with an owner-in-team rule.
 - **Scorecard/groups (Phase 3)**: `Scorecard` header (per team × timeframe), `Measurable Group`,
   Formula Builder (Smart Measurables), forecasting/custom period goals, prorated rollup views.
 - **EOS tools (Phase 4–5)**: V/TO, Rocks, To-Dos, Issues (IDS), Level 10 Meetings, reports.
