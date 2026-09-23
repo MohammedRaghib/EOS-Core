@@ -1,7 +1,7 @@
 import ast
 import re
 
-MAX_FORMULA_VARIABLES = 24
+MAX_FORMULA_VARIABLES = 25
 VARIABLE_PATTERN = re.compile(r"{([^{}\n]+)}")
 _SAFE_EXPRESSION = re.compile(r"^[\d\.\+\-\*\/\(\)\%\s]+$")
 
@@ -86,6 +86,37 @@ def extract_variables(formula):
 	return sorted(variables)
 
 
+def evaluate_formula(formula, variables=None):
+	variables = variables or {}
+	if len(variables) > MAX_FORMULA_VARIABLES:
+		return None
+	expression = formula or ""
+	for name in extract_variables(expression):
+		value = variables.get(name)
+		if value is None:
+			return None
+		expression = expression.replace("{" + name + "}", str(value))
+	if not expression or "{" in expression or "}" in expression:
+		return None
+	if not _SAFE_EXPRESSION.match(expression):
+		return None
+	try:
+		tree = ast.parse(expression, mode="eval")
+		return _eval_ast(tree.body)
+	except (SyntaxError, ZeroDivisionError, ValueError, TypeError, OverflowError):
+		return None
+
+
+def prorate_for_period(value, elapsed, total):
+	if value is None:
+		return None
+	if not elapsed or not total:
+		return None
+	if elapsed > total:
+		elapsed = total
+	return value * elapsed / total
+
+
 def scorecard_summary(statuses):
 	total = len(statuses)
 	on_track = sum(1 for status in statuses if status == "On Track")
@@ -109,6 +140,8 @@ def default_agenda_sections():
 
 
 def _range_status(actual_value, operator, min_value, max_value):
+	if actual_value is None:
+		return None
 	if operator == "Inside min/max":
 		if min_value is None and max_value is None:
 			return None
@@ -141,12 +174,42 @@ def _range_health(actual_value, operator, tolerance, min_value, max_value):
 		if min_value is None and max_value is None:
 			return None
 		if _range_satisfied(actual_value, operator, min_value, max_value):
-			return "Yellow"
+			return "Green"
 		if min_value is not None and max_value is not None:
 			width = max_value - min_value
-			return "Red" if width and (actual_value - min_value) / width > tolerance else None
+			nearest_exit = min(actual_value - min_value, max_value - actual_value)
+			return "Red" if width > 0 and nearest_exit / width > tolerance else "Yellow"
 		return "Red"
 	return None
+
+
+def _eval_ast(node):
+	if isinstance(node, ast.Constant):
+		if isinstance(node.value, (int, float)):
+			return node.value
+		raise ValueError
+	if isinstance(node, ast.BinOp):
+		left = _eval_ast(node.left)
+		right = _eval_ast(node.right)
+		if isinstance(node.op, ast.Add):
+			return left + right
+		if isinstance(node.op, ast.Sub):
+			return left - right
+		if isinstance(node.op, ast.Mult):
+			return left * right
+		if isinstance(node.op, ast.Div):
+			return left / right
+		if isinstance(node.op, ast.Mod):
+			return left % right
+		raise ValueError
+	if isinstance(node, ast.UnaryOp):
+		operand = _eval_ast(node.operand)
+		if isinstance(node.op, ast.UAdd):
+			return operand
+		if isinstance(node.op, ast.USub):
+			return -operand
+		raise ValueError
+	raise ValueError
 
 
 def _range_satisfied(actual_value, operator, min_value, max_value):
@@ -179,18 +242,9 @@ def _range_achievement(actual_value, operator, min_value, max_value):
 	if operator == "Outside min/max":
 		if min_value is None and max_value is None:
 			return None
-		if not _range_satisfied(actual_value, operator, min_value, max_value):
-			return 0.0
-		if min_value is not None and max_value is not None:
-			width = max_value - min_value
-			if width <= 0:
-				return 0.0
-			return _clamp(abs((actual_value - min_value) / width) * 100)
-		if min_value is not None:
-			return _clamp(actual_value / min_value * 100) if min_value else 0.0
-		if max_value is not None:
-			return _clamp(max_value / actual_value * 100) if max_value else 0.0
-		return None
+		if _range_satisfied(actual_value, operator, min_value, max_value):
+			return 100.0
+		return 0.0
 	return None
 
 
