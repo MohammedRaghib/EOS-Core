@@ -1,0 +1,173 @@
+{
+ "actions": [],
+ "autoname": "format:QR-{team}-{period_start}",
+ "creation": "2026-09-15 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "team",
+  "period_start",
+  "column_break_dates",
+  "period_end",
+  "rocks_section",
+  "rock_total",
+  "rock_active",
+  "rock_complete",
+  "rock_avg_progress",
+  "todos_section",
+  "todo_total",
+  "todo_open",
+  "todo_complete",
+  "todo_overdue",
+  "measurables_section",
+  "measurable_total",
+  "measurable_on_track",
+  "measurable_off_track"
+ ],
+ "fields": [
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Team",
+   "options": "Team",
+   "reqd": 1
+  },
+  {
+   "fieldname": "period_start",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Period Start",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_dates",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "period_end",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Period End",
+   "reqd": 1
+  },
+  {
+   "fieldname": "rocks_section",
+   "fieldtype": "Section Break",
+   "label": "Rocks"
+  },
+  {
+   "default": "0",
+   "fieldname": "rock_total",
+   "fieldtype": "Int",
+   "label": "Total Rocks",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "rock_active",
+   "fieldtype": "Int",
+   "label": "Active Rocks",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "rock_complete",
+   "fieldtype": "Int",
+   "label": "Complete Rocks",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "rock_avg_progress",
+   "fieldtype": "Percent",
+   "label": "Average Rock Progress",
+   "read_only": 1
+  },
+  {
+   "fieldname": "todos_section",
+   "fieldtype": "Section Break",
+   "label": "To-Dos"
+  },
+  {
+   "default": "0",
+   "fieldname": "todo_total",
+   "fieldtype": "Int",
+   "label": "Total To-Dos",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "todo_open",
+   "fieldtype": "Int",
+   "label": "Open To-Dos",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "todo_complete",
+   "fieldtype": "Int",
+   "label": "Complete To-Dos",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "todo_overdue",
+   "fieldtype": "Int",
+   "label": "Overdue To-Dos",
+   "read_only": 1
+  },
+  {
+   "fieldname": "measurables_section",
+   "fieldtype": "Section Break",
+   "label": "Measurables"
+  },
+  {
+   "default": "0",
+   "fieldname": "measurable_total",
+   "fieldtype": "Int",
+   "label": "Total Measurables",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "measurable_on_track",
+   "fieldtype": "Int",
+   "label": "On Track",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "measurable_off_track",
+   "fieldtype": "Int",
+   "label": "Off Track",
+   "read_only": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-09-15 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Eos Core",
+ "name": "Quarterly Review",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "team",
+ "track_changes": 1
+}

@@ -252,6 +252,126 @@ erDiagram
 - `send_report()` renders `templates/emails/weekly_scorecard_report.html` and sends to the team
   leader (or the configured `recipient_user`). Sets `status=Sent` and timestamps.
 
+## 3f. EOS Operating System tools (Phase 5 — implemented)
+
+```mermaid
+erDiagram
+    Organization ||--o| VTO : vision
+    VTO ||--o{ "VTO Core Focus" : core_focus
+    VTO ||--o{ "VTO Marketing Strategy" : marketing_strategy
+    VTO ||--o{ "VTO 3 Year Picture" : three_year_picture
+    VTO ||--o{ "VTO 1 Year Plan" : one_year_plan
+    VTO ||--o{ "VTO Quarterly Rocks" : quarterly_rocks
+    Team ||--o{ Rock : rocks
+    Rock ||--o{ "Rock Milestone" : milestones
+    Rock ||--o{ ToDo : todos
+    Team ||--o{ ToDo : todos
+    Team ||--o{ "Quarterly Review" : reviews
+
+    VTO {
+        string name PK "hash one per Organization"
+        string organization FK "Organization"
+    }
+
+    "VTO Core Focus" {
+        string purpose
+        string niche
+        string ten_year_target
+    }
+
+    "VTO Marketing Strategy" {
+        string threes_uniques
+        string process_steps
+        string three_week_guarantee
+        string proven_process
+        string unaffiliated_strategy
+    }
+
+    "VTO 3 Year Picture" {
+        float target_revenue
+        float target_profit
+        int target_employees
+        string vivid_description
+    }
+
+    "VTO 1 Year Plan" {
+        float target_revenue
+        float target_profit
+        string goals
+        string ten_rocks
+    }
+
+    "VTO Quarterly Rocks" {
+        date quarter_date
+        string rocks
+    }
+
+    Rock {
+        string name PK "format:R-{rock_name}"
+        string rock_name UK
+        string status "Not Started/In Progress/Complete/Dropped"
+        string scope "Company/Team/Individual"
+        string team FK "Team"
+        date duration_start
+        date duration_end
+        int head_down_hours_per_week
+    }
+
+    "Rock Milestone" {
+        string milestone_name
+        int completed
+    }
+
+    ToDo {
+        string name PK "format:TD-{todo_name}"
+        string todo_name UK
+        string status "Not Started/In Progress/Complete/Dropped (forward-only)"
+        string owner_user FK "User"
+        string team FK "Team"
+        string rock FK "Rock"
+        date due_date
+        string priority
+    }
+
+    "Quarterly Review" {
+        string name PK "format:QR-{team}-{period_start}"
+        string team FK "Team"
+        date period_start
+        date period_end
+        int rock_total
+        int rock_active
+        int rock_complete
+        float rock_avg_progress
+        int todo_total
+        int todo_open
+        int todo_complete
+        int todo_overdue
+        int measurable_total
+        int measurable_on_track
+        int measurable_off_track
+    }
+```
+
+- **V/TO** (`VTO`): one per `Organization` (enforced in `validate`). On insert, the five child
+  sections are auto-populated as a single empty row each (`populate_sections`) — the user edits
+  them in place. Children are passive (`istable=1`).
+- **Rocks** (`Rock`): 90-day priority with `status`, `scope` (Company/Team/Individual), an
+  optional `team`, duration window, and head-down hours. `Rock Milestone` child rows gate
+  completion: a Rock cannot be `Complete` while a milestone is open, and `mark_complete` rejects
+  open milestones, completes the Rock, and cascades `Complete` to linked active To-Dos.
+- **To-Dos** (`To Do`): forward-only `status` transitions (`Not Started → In Progress →
+  Complete/Dropped`); no-op saves (same status) are allowed. `cascade_todo_transitions` bulk-closes
+  a list of To-Dos (used by `mark_complete`). `To Do Item` is a passive child checklist.
+- **Quarterly Review** (`Quarterly Review`): one per team × `period_start` (uniqueness matches the
+  autoname key). `populate_snapshot` on insert runs `build_quarterly_review` against:
+  - Rocks that are `Company`-scoped **or** belong to the review team, with a duration window
+    overlapping `[period_start, period_end]`;
+  - To-Dos whose `due_date` falls inside `[period_start, period_end]`;
+  - the latest `Scorecard Entry` inside the period for each non-archived metric of the team (or
+    org-wide).
+  Overdue is judged against `period_end` (passed as `as_of`), not the current date, so historical
+  reviews are stable.
+
 ## 4. Scoring engine (`eos_core/scorecard_engine.py`)
 
 Pure, frappe-free functions so they are trivially testable. Behaviour (defaults, all configurable):
@@ -269,6 +389,10 @@ Pure, frappe-free functions so they are trivially testable. Behaviour (defaults,
 | `scorecard_summary` | `(statuses)` | Returns `{total, on_track, off_track}` counts for a list of entry statuses. |
 | `default_agenda_sections` | `()` | The six standard Level 10 agenda sections in order. |
 | `build_scorecard_report` | `(metric_blocks, trend_threshold=3)` | From a list of metric dicts (with `statuses`), computes per-metric trend, overall summary, and metrics exceeding the consecutive off-track threshold. |
+| `quarter_bounds` | `(anchor)` | Returns `(period_start, period_end)` for the quarter containing `anchor`. |
+| `rollup_rock_summary` | `(rock_rows, )` | `{total, active, complete, average_progress}` given rows with `status`/`progress`. |
+| `rollup_todo_summary` | `(todo_rows, as_of=None)` | `{total, open, complete, overdue}` given rows with `status`/`due_date`; open todos due before `as_of` (default: today) count overdue. |
+| `build_quarterly_review` | `(rock_rows, todo_rows, measurable_rows, as_of=None)` | Combines the three rollups into `{rocks, todos, measurables}` for a review snapshot. |
 
 Design notes:
 - Status is **computed once per period**, never cumulative/vs YTD (matches Ninety: each reporting
@@ -296,7 +420,18 @@ eos_core/
         ├── scorecard_report_metric/ # child: report snapshot row (passive)
         ├── organization/        # organization root
         ├── team/                # nested hierarchy with cycle/cross-org validation
-        └── player/              # person/seat mapped to Frappe User
+        ├── player/              # person/seat mapped to Frappe User
+        ├── vto/                 # V/TO header (one per org) + populate_sections
+        ├── vto_core_focus/      # child: purpose / niche / 10-year target (passive)
+        ├── vto_marketing_strategy/ # child: threes / uniques / process / guarantee (passive)
+        ├── vto_3_year_picture/  # child: 3-year targets + vivid description (passive)
+        ├── vto_1_year_plan/     # child: 1-year targets + goals (passive)
+        ├── vto_quarterly_rocks/ # child: quarter_date + rocks text (passive)
+        ├── rock/                # controller: status/milestone gating, mark_complete cascade
+        ├── rock_milestone/      # child: milestone rows gating Rock completion (passive)
+        ├── to_do/               # controller: forward-only status, cascade_todo_transitions
+        ├── to_do_item/          # child: passive checklist rows
+        └── quarterly_review/    # controller: team×period snapshot via build_quarterly_review
 ```
 
 Keep this rule: **pure math in `scorecard_engine.py`, frappe glue in controllers.**
@@ -313,7 +448,9 @@ See `docs/roadmap.md` for status. The target model adds:
 - **Meetings & Issues (Phase 4 — DONE)**: `Level 10 Meeting` (agenda + to-dos), `Issue` IDS
   workflow with "Make it an Issue" from off-track measurables, weekly `Scorecard Report`
   with snapshot, email sending, and trend detection.
-- **EOS tools (Phase 5)**: V/TO, Rocks, To-Dos, quarterly reviews.
+- **EOS tools (Phase 5 — DONE)**: `VTO` with five child sections (Core Focus / Marketing Strategy /
+  3-Year Picture / 1-Year Plan / Quarterly Rocks), `Rock` + `Rock Milestone`, `To Do` + `To Do Item`,
+  and `Quarterly Review` team snapshots.
 - **Permissions (Phase 6)**: map Ninety roles (Owner / Admin / Coach / Manager / Team Member /
   Observer) onto Frappe roles and DocPerm blocks.
 

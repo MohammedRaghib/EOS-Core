@@ -63,7 +63,18 @@ apps/eos_core/
         ├── scorecard_report_metric/ # Scorecard Report Metric (Child)
         ├── organization/        # Organization (Standard)
         ├── team/                # Team (Standard, nested hierarchy)
-        └── player/              # Player (Standard, person/seat)
+        ├── player/              # Player (Standard, person/seat)
+        ├── vto/                 # V/TO (Standard, one per org) + 5 child sections
+        ├── vto_core_focus/      # V/TO Core Focus (Child): purpose/niche/10-year target
+        ├── vto_marketing_strategy/ # V/TO Marketing Strategy (Child): threes/uniques/process
+        ├── vto_3_year_picture/  # V/TO 3 Year Picture (Child)
+        ├── vto_1_year_plan/     # V/TO 1 Year Plan (Child)
+        ├── vto_quarterly_rocks/ # V/TO Quarterly Rocks (Child)
+        ├── rock/                # Rock (Standard) + milestone-gated completion
+        ├── rock_milestone/      # Rock Milestone (Child)
+        ├── to_do/               # To Do (Standard) + cascade_todo_transitions
+        ├── to_do_item/          # To Do Item (Child)
+        └── quarterly_review/    # Quarterly Review (Standard) + snapshot
 ```
 
 ## Current state (what is already done)
@@ -80,9 +91,15 @@ apps/eos_core/
 | Meetings | `Level 10 Meeting` / `Meeting Agenda Item` / `Meeting To Do` | DONE — unique team+date, status transitions, default 6-item agenda auto-filled |
 | Issues (IDS) | `Issue` + `create_issue_from_metric` | DONE — forward-only transitions, solution required on Solve, "Make it an Issue" from off-track metric |
 | Scorecard report | `Scorecard Report` / `Scorecard Report Metric` | DONE — team×week snapshot, auto-populated metrics, summary + trend counts, `send_report` emails via Jinja template |
+| V/TO | `VTO` + 5 child sections | DONE — one per Organization, sections auto-populated on insert |
+| Rocks | `Rock` / `Rock Milestone` | DONE — status + milestone gating, `mark_complete` cascades linked To-Dos |
+| To-Dos | `To Do` / `To Do Item` | DONE — forward-only status, `cascade_todo_transitions` |
+| Quarterly review | `Quarterly Review` | DONE — team × period snapshot of Rocks/To-Dos/Measurables |
 
-Tests: `bench --site resolv.localhost run-tests --app eos_core` runs 41 tests (set `allow_tests true`
-first — already enabled on `resolv.localhost`).
+Tests: `bench --site resolv.localhost run-tests --app eos_core` runs the 19 pure-engine unit tests.
+The 37 integration tests run per module, e.g.
+`bench --site resolv.localhost run-tests --module eos_core.eos_core.doctype.rock.test_rock`
+(set `allow_tests true` first — already enabled on `resolv.localhost`). Full suite = 56 tests.
 
 Permissions are System Manager only for now (role model is Phase 6 in the roadmap).
 
@@ -99,6 +116,7 @@ Permissions are System Manager only for now (role model is Phase 6 in the roadma
 
 ## What to build next
 
-See `docs/roadmap.md`. Phase 4 (Meetings & Reporting) is now complete. Phase 5 (V/TO, Rocks,
-To-Dos, quarterly reviews) is the next major phase. Re-read the roadmap before starting so naming
-and data flow stay consistent with the architecture document.
+See `docs/roadmap.md`. Phases 1–5 are complete. Phase 6 (Permissions & Roles — map Ninety
+Owner/Admin/Coach/Manager/Team Member/Observer onto Frappe roles and DocPerm blocks) is the next
+major phase. Re-read the roadmap before starting so naming and data flow stay consistent with the
+architecture document.

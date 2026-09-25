@@ -1,5 +1,5 @@
 from frappe.model.document import Document
 
 
-class Vto3YearPicture(Document):
+class VTO3YearPicture(Document):
 	pass

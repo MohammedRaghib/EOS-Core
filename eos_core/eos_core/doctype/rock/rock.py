@@ -1,8 +1,8 @@
 import frappe
 from frappe.model.document import Document
 
-from eos_core.scorecard_engine import rollup_rock_summary
 from eos_core.eos_core.doctype.to_do.to_do import cascade_todo_transitions
+from eos_core.scorecard_engine import rollup_todo_summary
 
 ROCK_STATUSES = ("Not Started", "In Progress", "Complete", "Dropped")
 
@@ -20,10 +20,8 @@ class Rock(Document):
 						f"Rock {frappe.bold(self.rock_name)} cannot be marked Complete while milestone "
 						f"{frappe.bold(milestone.milestone_name)} is still open."
 					)
-		existing = frappe.db.exists(
-			"Rock", {"rock_name": self.rock_name, "name": ["!=", self.name]}
-		)
-		if existing:
+		existing = frappe.db.get_value("Rock", {"rock_name": self.rock_name}, "name")
+		if existing and (self.is_new() or existing != self.name):
 			frappe.throw(f"A rock named {frappe.bold(self.rock_name)} already exists.")
 
 	@property
@@ -70,6 +68,6 @@ class Rock(Document):
 				"total": len(self.milestones),
 				"complete": sum(1 for milestone in self.milestones if milestone.completed),
 			},
-			"todos": rollup_rock_summary(todos),
+			"todos": rollup_todo_summary(todos),
 			"linked_todos": len(todos),
 		}

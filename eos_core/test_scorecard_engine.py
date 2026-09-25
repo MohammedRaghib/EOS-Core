@@ -1,7 +1,9 @@
+import datetime
 import unittest
 
 from eos_core.scorecard_engine import (
 	aggregate_values,
+	build_quarterly_review,
 	build_scorecard_report,
 	compute_achievement,
 	compute_health,
@@ -11,6 +13,9 @@ from eos_core.scorecard_engine import (
 	evaluate_formula,
 	extract_variables,
 	prorate_for_period,
+	quarter_bounds,
+	rollup_rock_summary,
+	rollup_todo_summary,
 	scorecard_summary,
 )
 
@@ -156,3 +161,51 @@ class TestScorecardEngine(unittest.TestCase):
 			trend_threshold=5,
 		)
 		self.assertEqual(report["trends"], [])
+
+	def test_quarter_bounds(self):
+		start, end = quarter_bounds(datetime.date(2026, 10, 15))
+		self.assertEqual(start, datetime.date(2026, 10, 1))
+		self.assertEqual(end, datetime.date(2026, 12, 31))
+
+	def test_quarter_bounds_rolls_over_year(self):
+		start, end = quarter_bounds(datetime.date(2026, 1, 5))
+		self.assertEqual(start, datetime.date(2026, 1, 1))
+		self.assertEqual(end, datetime.date(2026, 3, 31))
+
+	def test_rollup_rock_summary(self):
+		summary = rollup_rock_summary(
+			[
+				{"status": "In Progress", "progress": 50},
+				{"status": "Complete", "progress": 100},
+				{"status": "Not Started", "progress": 0},
+			]
+		)
+		self.assertEqual(
+			summary, {"total": 3, "active": 2, "complete": 1, "average_progress": 50.0}
+		)
+
+	def test_rollup_todo_summary_with_as_of(self):
+		summary = rollup_todo_summary(
+			[
+				{"status": "In Progress", "due_date": datetime.date(2026, 11, 30)},
+				{"status": "Complete", "due_date": datetime.date(2026, 10, 5)},
+				{"status": "Not Started", "due_date": None},
+			],
+			as_of="2026-12-31",
+		)
+		self.assertEqual(
+			summary, {"total": 3, "open": 2, "complete": 1, "overdue": 1}
+		)
+
+	def test_build_quarterly_review(self):
+		review = build_quarterly_review(
+			[{"status": "Complete", "progress": 100.0}],
+			[{"status": "In Progress", "due_date": datetime.date(2026, 11, 30)}],
+			[{"status": "On Track"}, {"status": "Off Track"}],
+			as_of="2026-12-31",
+		)
+		self.assertEqual(review["rocks"]["total"], 1)
+		self.assertEqual(review["todos"]["overdue"], 1)
+		self.assertEqual(
+			review["measurables"], {"total": 2, "on_track": 1, "off_track": 1}
+		)

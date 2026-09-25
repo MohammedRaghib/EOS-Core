@@ -5,6 +5,7 @@ from frappe.model.document import Document
 SECTION_DEFS = [
     {
         "doctype": "VTO Core Focus",
+        "fieldname": "core_focus",
         "fields": {
             "purpose": "",
             "niche": "",
@@ -13,9 +14,10 @@ SECTION_DEFS = [
     },
     {
         "doctype": "VTO Marketing Strategy",
+        "fieldname": "marketing_strategy",
         "fields": {
             "threes_uniques": "",
-            "process": "",
+            "process_steps": "",
             "three_week_guarantee": "",
             "proven_process": "",
             "unaffiliated_strategy": "",
@@ -23,6 +25,7 @@ SECTION_DEFS = [
     },
     {
         "doctype": "VTO 3 Year Picture",
+        "fieldname": "three_year_picture",
         "fields": {
             "target_revenue": 0.0,
             "target_profit": 0.0,
@@ -32,6 +35,7 @@ SECTION_DEFS = [
     },
     {
         "doctype": "VTO 1 Year Plan",
+        "fieldname": "one_year_plan",
         "fields": {
             "target_revenue": 0.0,
             "target_profit": 0.0,
@@ -41,6 +45,7 @@ SECTION_DEFS = [
     },
     {
         "doctype": "VTO Quarterly Rocks",
+        "fieldname": "quarterly_rocks",
         "fields": {
             "quarter_date": None,
             "rocks": "",
@@ -66,4 +71,4 @@ class VTO(Document):
 
     def populate_sections(self):
         for section_def in SECTION_DEFS:
-            self.append(section_def["doctype"], section_def["fields"])
+            self.append(section_def["fieldname"], section_def["fields"])

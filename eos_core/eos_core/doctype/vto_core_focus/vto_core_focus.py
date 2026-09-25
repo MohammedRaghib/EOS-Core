@@ -1,5 +1,5 @@
 from frappe.model.document import Document
 
 
-class VtoCoreFocus(Document):
+class VTOCoreFocus(Document):
 	pass

@@ -21,8 +21,11 @@ Ninety's data model and workflows built as a native Frappe app.
 - **Phase 4 — Meetings & Reporting: DONE.** `Level 10 Meeting` (agenda + to-dos), `Issue`
   with the IDS workflow, "Make it an Issue" from an off-track measurable, and a weekly
   `Scorecard Report` with snapshot generation, off-track summary, trend detection, and
-  email sending via a Jinja template. 41 tests pass.
-- Phases 5–7 (V/TO & Rocks, permissions, integrations) are **planned** — see `docs/roadmap.md`.
+  email sending via a Jinja template. 24 tests pass.
+- **Phase 5 — EOS Operating System: DONE.** `V/TO` (five auto-populated sections), `Rock`
+  with milestone-gated completion that cascades linked To-Dos, forward-only `To Do`, and
+  `Quarterly Review` team snapshots (Rocks/To-Dos/Measurables). 56 tests pass.
+- Phases 6–7 (permissions, integrations) are **planned** — see `docs/roadmap.md`.
 
 ## Who is this README for?
 

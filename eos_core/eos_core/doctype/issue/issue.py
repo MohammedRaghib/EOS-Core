@@ -17,7 +17,11 @@ class Issue(Document):
 	def validate_status_transition(self):
 		if not self.is_new():
 			previous = frappe.db.get_value("Issue", self.name, "status")
-			if previous and self.status not in VALID_STATUS_TRANSITIONS.get(previous, []):
+			if (
+				previous
+				and previous != self.status
+				and self.status not in VALID_STATUS_TRANSITIONS.get(previous, [])
+			):
 				frappe.throw(
 					f"Cannot transition from {frappe.bold(previous)} to {frappe.bold(self.status)}."
 				)

@@ -74,13 +74,30 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
       of all non-archived metrics + off-track summary + trend detection. `send_report` emails the
       team leader (or a chosen recipient) via a Jinja template.
 
-## Phase 5 — EOS Operating System `[ ]`
+## Phase 5 — EOS Operating System `[x] DONE`
 
-- [ ] `V/TO` (Vision/Traction Organizer): Core Focus, 10-Year Target, Marketing Strategy, 3-Year
-      Picture, 1-Year Plan, Quarterly Plan
-- [ ] `Rock` (90-day goal): company/team/individual rocks with head-down time, milestone tracking
-- [ ] `To Do`: assignee, due date, cascade/rollups to leadership
-- [ ] Quarterly review (1-on-1): pulls Rocks, To-Dos, and owned Measurables (green/red)
+- [x] `V/TO` (Vision/Traction Organizer): `VTO` (Standard, one per Organization, format autoname)
+      with five auto-populated sections —
+      `VTO Core Focus` (purpose/niche/10-year target), `VTO Marketing Strategy`
+      (threes/uniques/process/guarantee), `VTO 3 Year Picture`, `VTO 1 Year Plan`,
+      `VTO Quarterly Rocks`
+- [x] `Rock` (90-day goal): `rock_name` (unique), `status` (`Not Started`/`In Progress`/`Complete`/
+      `Dropped`, forward completion gated on milestones), `scope` (Company/Team/Individual),
+      `owner_user`, duration, head-down hours, `Rock Milestone` child rows, `mark_complete` closes
+      linked To-Dos
+- [x] `To Do`: `todo_name` (unique), `status` (`Not Started`/`In Progress`/`Complete`, forward-only),
+      `owner_user`, `team`, `due_date`, optional link to a `Rock`, `To Do Item` child rows,
+      `cascade_todo_transitions` for leadership rollups
+- [x] `Quarterly Review`: `team` × `period_start` (unique), auto-snapshot on insert — pulls the
+      team's Rocks (Company-scoped + own-team) with milestone progress, To-Dos due within the
+      period (overdue judged against `period_end`), and team Measurables (green/red counts) via
+      `build_quarterly_review`
+- [x] Tests: `test_rock.py` (5), `test_to_do.py` (4), `test_vto.py` (2),
+      `test_quarterly_review.py` (4) — all green; full suite 56 tests (19 unit + 37 integration)
+
+**Definition of done (met):** all 24 Eos Core DocTypes registered (migrate clean, zero orphans);
+create an Organization → auto-populated `V/TO`, add Rocks with milestones → mark complete cascades
+To-Dos; `Quarterly Review` snapshots the quarter with a single insert.
 
 ## Phase 6 — Permissions & Roles `[ ]`
 

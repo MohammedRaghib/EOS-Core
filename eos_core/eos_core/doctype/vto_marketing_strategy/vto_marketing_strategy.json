@@ -5,7 +5,7 @@
  "engine": "InnoDB",
  "field_order": [
   "threes_uniques",
-  "process",
+  "process_steps",
   "three_week_guarantee",
   "proven_process",
   "unaffiliated_strategy"
@@ -17,7 +17,7 @@
    "label": "Three Uniques"
   },
   {
-   "fieldname": "process",
+   "fieldname": "process_steps",
    "fieldtype": "Small Text",
    "label": "Proven Process"
   },
@@ -41,7 +41,7 @@
  "istable": 1,
  "links": [],
  "modified": "2026-09-15 10:00:00",
- "module": "eos_core",
+ "module": "Eos Core",
  "name": "VTO Marketing Strategy",
  "owner": "Administrator",
  "permissions": [],

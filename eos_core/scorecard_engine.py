@@ -322,7 +322,12 @@ def rollup_rock_summary(rock_rows):
 	}
 
 
-def rollup_todo_summary(todo_rows):
+def rollup_todo_summary(todo_rows, as_of=None):
+	as_of = as_of or _today()
+	if isinstance(as_of, str):
+		import datetime as _dt
+
+		as_of = _dt.date.fromisoformat(as_of)
 	total = len(todo_rows)
 	open_todos = sum(1 for todo in todo_rows if todo.get("status") not in ("Complete", "Dropped"))
 	complete = sum(1 for todo in todo_rows if todo.get("status") == "Complete")
@@ -330,7 +335,7 @@ def rollup_todo_summary(todo_rows):
 	for todo in todo_rows:
 		if todo.get("status") in ("Complete", "Dropped"):
 			continue
-		if todo.get("due_date") and todo["due_date"] < _today():
+		if todo.get("due_date") and todo["due_date"] < as_of:
 			overdue += 1
 	return {
 		"total": total,
@@ -340,9 +345,9 @@ def rollup_todo_summary(todo_rows):
 	}
 
 
-def build_quarterly_review(rock_rows, todo_rows, measurable_rows):
+def build_quarterly_review(rock_rows, todo_rows, measurable_rows, as_of=None):
 	rocks = rollup_rock_summary(rock_rows)
-	todos = rollup_todo_summary(todo_rows)
+	todos = rollup_todo_summary(todo_rows, as_of=as_of)
 	measurable_statuses = [
 		measurable.get("status")
 		for measurable in measurable_rows
@@ -362,12 +367,12 @@ def _quarter_start(year, quarter_month):
 
 def _quarter_end(start):
 	month = start.month
-	next_month = month + 3
+	last_month = month + 2
 	year = start.year
-	if next_month > 12:
-		next_month -= 12
+	if last_month > 12:
+		last_month -= 12
 		year += 1
-	return _last_day_of_month(year, next_month)
+	return _last_day_of_month(year, last_month)
 
 
 def _last_day_of_month(year, month):
