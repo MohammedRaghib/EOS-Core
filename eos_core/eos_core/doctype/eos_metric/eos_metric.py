@@ -80,7 +80,14 @@ class EOSMetric(Document):
 	def validate_group(self):
 		if not self.group:
 			return
-		group = frappe.get_doc("Measurable Group", self.group)
+		group = frappe.db.get_value(
+			"Measurable Group", self.group, ["group_name", "scorecard"], as_dict=True
+		)
+		if not group:
+			frappe.throw(
+				f"Group {frappe.bold(self.group)} no longer exists. "
+				"Pick another group or clear the field before saving."
+			)
 		if group.scorecard != self.scorecard:
 			frappe.throw(
 				f"Group {frappe.bold(group.group_name)} belongs to a different Scorecard."
@@ -88,6 +95,10 @@ class EOSMetric(Document):
 		scorecard = frappe.db.get_value(
 			"Scorecard", group.scorecard, ["team", "timeframe"], as_dict=True
 		)
+		if not scorecard:
+			frappe.throw(
+				f"Group {frappe.bold(group.group_name)} points to a Scorecard that no longer exists."
+			)
 		if scorecard.team != self.team or scorecard.timeframe != self.frequency:
 			frappe.throw(
 				f"Group {frappe.bold(group.group_name)} matches a different team or timeframe."

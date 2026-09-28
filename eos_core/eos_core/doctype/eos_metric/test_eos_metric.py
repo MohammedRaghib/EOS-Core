@@ -267,6 +267,61 @@ class TestEOSMetric(IntegrationTestCase):
 				}
 			).insert()
 
+	def test_dangling_group_raises_validation_error(self):
+		metric, group = self._metric_with_group()
+
+		frappe.delete_doc("Measurable Group", group.name, force=True)
+
+		metric.flags.ignore_links = True
+		with self.assertRaises(frappe.ValidationError) as context:
+			metric.description = "Touch"
+			metric.save()
+		message = str(context.exception)
+		self.assertIn(group.name, message)
+		self.assertIn("Group", message)
+		self.assertNotIsInstance(context.exception, frappe.DoesNotExistError)
+
+	def test_dangling_group_caught_by_link_validation_on_normal_save(self):
+		metric, group = self._metric_with_group()
+
+		frappe.delete_doc("Measurable Group", group.name, force=True)
+
+		with self.assertRaises(frappe.LinkValidationError):
+			metric.description = "Touch"
+			metric.save()
+
+	def _metric_with_group(self):
+		team = frappe.get_doc({"doctype": "Team", "team_name": "GM Group Team"}).insert()
+		frappe.get_doc(
+			{
+				"doctype": "Player",
+				"player_name": "GM Group Admin",
+				"user": "Administrator",
+				"team": team.name,
+			}
+		).insert()
+		metric = frappe.get_doc(
+			{
+				"doctype": "EOS Metric",
+				"metric_name": "GM Group Metric",
+				"owner": "Administrator",
+				"team": team.name,
+				"target_value": 100,
+				"operator": ">=",
+				"frequency": "Weekly",
+			}
+		).insert()
+		group = frappe.get_doc(
+			{
+				"doctype": "Measurable Group",
+				"group_name": "GM Revenue Group",
+				"scorecard": metric.scorecard,
+			}
+		).insert()
+		metric.group = group.name
+		metric.save()
+		return metric, group
+
 	def tearDown(self):
 		frappe.db.delete("Measurable Group")
 		frappe.db.delete("Scorecard")
