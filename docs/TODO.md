@@ -372,8 +372,8 @@ Moved here when finished. Never deleted, never renumbered.
 
 | ID | Item | Closed | SHA |
 |---|---|---|---|
-| `DOC-1` | `architecture.md` wrongly said `Measurable Group` has no `title_field` | 2026-09-28 | *uncommitted* |
-| `DOC-2` | `architecture.md` §4 engine table omitted `validate_formula_syntax` | 2026-09-28 | *uncommitted* |
+| `DOC-1` | `architecture.md` wrongly said `Measurable Group` has no `title_field` | 2026-09-28 | `f6f3e73` |
+| `DOC-2` | `architecture.md` §4 engine table omitted `validate_formula_syntax` | 2026-09-28 | `f6f3e73` |
 
 **`DOC-1`** — re-verified against `measurable_group.json` and the live `tabDocType` row, then §7
 rewritten to state the two DocTypes separately: both are hash-named, but `Measurable Group` sets
