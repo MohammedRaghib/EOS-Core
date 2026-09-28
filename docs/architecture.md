@@ -23,10 +23,10 @@ Ninety is built around these tools:
 | Scorecard (Weekly/Monthly/Quarterly/Annual) | `frequency` on `EOS Metric` | A metric belongs to exactly one timeframe; you cannot convert it later |
 | Orientation rule (Greater than / Less than / Equal to / ranges) | `operator` on `EOS Metric` | `>=`, `<=`, `==`, `Inside min/max`, `Outside min/max` implemented |
 | Unit type (Number/Currency/Percentage/Yes/No/Time) | `unit_type` on `EOS Metric` | Display + rollup behaviour; permanent after data entry |
-| Rollup (Total/Average) | `rollup` on `EOS Metric` | Ninety's "Show rollup data as" option. Governs how weekly values aggregate into Month/Quarter/Year "View by" views. **Stored but not yet wired to any call site.** |
-| Groups | `Measurable Group` (Phase 3) | Up to 20 labelled groups per Scorecard; linked from `EOS Metric.group`. `order` is stored but never read; Ninety carries group order into the L10 agenda |
+| Rollup (Total/Average) | `rollup` on `EOS Metric` | Ninety's "Show rollup data as" option, default `Total`. Governs how weekly values aggregate into Month/Quarter/Year "View by" views — read by `aggregate_entries_for_period` via `Scorecard.get_rollup_view` (Block 2b). |
+| Groups | `Measurable Group` (Phase 3) | Up to 20 labelled groups per Scorecard; linked from `EOS Metric.group`. `order` is read by `sort_metrics_by_group`, which orders the `Scorecard Report` snapshot and the L10 "Scorecard Review" agenda (Block 2c); ungrouped measurables sort last. |
 | Team / Org levels (1–5) | `Organization` / `Team` / `Player` | One `Organization`, nested `Team`s (Leadership → Department → Team), `Player`s per team |
-| Status colors (green/yellow/red) | **implemented (Block 2a)** | Ninety derives the indicator from the 3 most recently **completed** reporting intervals: Green = on target for all 3, Yellow = missed at least one, Red = missed all 3, plus "No Recent Data" when none of the 3 are scored. The current in-progress period is excluded. `compute_status_indicator` + `completed_period_statuses` implement this, and `Scorecard Report Metric.status_indicator` persists it per metric. The non-Ninety 10%-tolerance `compute_health` was deleted. Fewer than 3 completed periods is treated as "all periods present", so 1 missed of 1 is Red. |
+| Status colors (green/yellow/red) | **implemented (Block 2a)** | Ninety derives the indicator from the 3 most recently **completed** reporting intervals: Green = on target for all 3, Yellow = missed at least one, Red = missed all 3, plus "No Recent Data" when none of the 3 are scored. The current in-progress period is excluded. `compute_status_indicator` + `completed_period_statuses` implement this, and `Scorecard Report Metric.status_indicator` persists it per metric. The non-Ninety 10%-tolerance `compute_health` was deleted. Empty intervals **count against** the indicator (Ninety: "empty periods count against the calculation"), so a scored history with gaps can read `Yellow` or `Red` but never `Green`. |
 | Off-track 3 weeks → Issue | `count_consecutive_off_track` (Phase 3) | Right-click "Make it an Issue" workflow (Phase 4) |
 | Formula Builder (Smart Measurable) | `is_smart` + `formula` on `EOS Metric` (Phase 3) | Computed measurables referencing other measurables via `{Name}` syntax (max 25 vars) |
 | Scorecard (Phase 3) | `Scorecard` DocType | `team` + `timeframe` combination; auto-created when team metric saved |
@@ -250,7 +250,49 @@ erDiagram
   statuses), calls `build_scorecard_report` to compute summary + trend detection, stores in the
   child table.
 - `send_report()` renders `templates/emails/weekly_scorecard_report.html` and sends to the team
-  leader (or the configured `recipient_user`). Sets `status=Sent` and timestamps.
+  leader (or the configured `recipient_user`). Sets `status=Sent` and timestamps. The template is
+  rendered with `_email_context()`, which supplies exactly four keys: `report` (`team`,
+  `week_start_date`, `generated_on`), `summary` (`total`, `on_track`, `off_track`), `trends` (one
+  `{name, consecutive_off_track}` per child row) and `rows` (one per child row, exposing
+  `name`/`group`/`owner`/`actual`/`target`/`status`/`trend` plus `status_indicator`). A change to the
+  child table or to that context needs a matching template update or the email renders stale data.
+- `populate_snapshot` computes `trends` twice: `build_scorecard_report` returns a `trends` list that
+  is then **discarded**, and the value is recomputed from the child rows instead. The engine's
+  result is dead work today.
+- Rows are ordered by `Measurable Group.order` (ungrouped last) via `sort_metrics_by_group`, which
+  is Ninety's "the groups appear in the same order you've set on the Scorecard".
+- The snapshot deliberately does **not** include a rolled-up aggregate. See §3g.
+
+## 3g. "View by" rolled-up view (Block 2b — implemented)
+
+Ninety's Scorecard has a **View by** dropdown: `Week` (default) or the read-only `Month`,
+`Quarter` and `Year`, which "display prorated data aggregated by calendar" period. Two Ninety rules
+govern it and both are implemented:
+
+1. **Weeks that straddle a boundary are split by calendar day, not by whole week.** Ninety's own
+   example: a week running Oct 27 – Nov 2 contributes **5/7 to October and 2/7 to November**.
+   `week_overlap_days` / `aggregate_entries_for_period` do this per entry.
+2. **The aggregate is display-only.** Ninety: *"the data columns aggregate your weekly entries —
+   but the Goal and Average columns continue to display the single-period (weekly) value. This is
+   intentional."* and *"the Total and Average columns do not affect a period's on-track status."*
+
+Consequences, all enforced by tests:
+
+- `Scorecard.get_rollup_view(view_by, range_start, range_end)` is a `@frappe.whitelist()`
+  **read-only** endpoint. It returns `read_only: True`, the period columns, and per metric the
+  prorated value per period plus the **unchanged weekly `goal`**. It carries **no** `status`,
+  `status_indicator` or `trend` key, so a rolled-up view cannot alter a scorecard's on-track state.
+- **No new DocType.** Ninety is explicit that View by "does not convert Weekly Measurables into
+  Monthly, Quarterly, or Annual Measurables: those remain separate Scorecards", so the rollup is a
+  projection over the existing `Scorecard` (one per `team` × `timeframe`) and nothing is persisted.
+- Only the `Weekly` Scorecard can be rolled up — it is the source of the weekly entries. `view_by`
+  accepts either vocabulary (`Month` or `Monthly`) via `normalise_view_by`; `Week` and unknown
+  values are rejected.
+- `EOS Metric.rollup` (`Total`, Ninety's default, or `Average`) selects the aggregation. Ninety
+  advises percentage-target measurables use `Average`.
+- The default range is the most recent 13 weeks, matching Ninety's default Date range. Period labels
+  are Ninety's headers (`October 2026`, `Q4 2026`, `2026`).
+- There is still **no UI** for this: the endpoint is the only way to read it.
 
 ## 3f. EOS Operating System tools (Phase 5 — implemented)
 
@@ -380,13 +422,24 @@ Pure, frappe-free functions so they are trivially testable. Behaviour (defaults,
 |---|---|---|
 | `compute_status` | `(target_value, actual_value, operator, min_value=None, max_value=None)` | `On Track`/`Off Track`. Ranges: Inside = on-track within bounds; Outside = on-track outside bounds. `>=`: actual ≥ target. `<=`: actual ≤ target. `==`: exact equality. Missing actual → `None`. Missing target → `On Track`. |
 | `compute_achievement` | `(target_value, actual_value, operator, min_value=None, max_value=None)` | Percent of goal, clamped 0–100. Ranges: Inside = 100 in-range, else ratio to boundary. Outside = 100 outside, else distance-to-edge. |
-| `compute_status_indicator` | `(statuses, window=3)` | Ninety's status indicator over the last `window` scored periods: all `On Track` → `Green`, all `Off Track` → `Red`, otherwise `Yellow`. No scored period at all → `No Recent Data`. Unscored (`None`) entries are ignored. |
+| `compute_status_indicator` | `(statuses, window=3)` | Ninety's status indicator over the last `window` completed reporting intervals. All `On Track` → `Green`; none `On Track` → `Red`; mixed → `Yellow`; no scored interval at all → `No Recent Data`. Unscored (`None`) intervals **count against** the result, so a gap can never read `Green`. |
 | `is_period_complete` | `(period_start, today=None)` | `True` once all 7 days of a weekly period have elapsed (`period_start + 6 days < today`). Accepts `date`, `datetime` or ISO string. The current in-progress week is therefore never complete. |
-| `completed_period_statuses` | `(entries, today=None)` | Statuses of completed periods only, sorted oldest → newest. `entries` need `week_start_date` and `status`. Entries without a date are dropped. |
+| `recent_completed_period_starts` | `(today=None, window=3)` | The `window` most recently completed Monday-aligned week starts before `today`, oldest → newest. Delegates to `is_period_complete` so "period complete" has one definition. |
+| `completed_period_statuses` | `(entries, today=None, window=3)` | Exactly `window` statuses, one per completed interval from `recent_completed_period_starts`, oldest → newest. An interval with no entry yields `None`, so empty periods count against the indicator. `entries` need `week_start_date` and `status`; undated entries are ignored. |
 | `aggregate_values` | `(values, rollup)` | `Total` = sum, `Average` = mean of numeric values; skips `None`. |
 | `extract_variables` | `(formula)` | Parses `{Name}` references from a formula string. Returns sorted list of names. |
 | `evaluate_formula` | `(formula, variables)` | Safe AST-based evaluator. `{Name}` vars replaced with floats, div-by-zero → `None`. Max 25 vars. |
-| `prorate_for_period` | `(value, elapsed, total)` | Returns `value * elapsed / total`. Clamps `elapsed` to `total` but does **not** clamp the ratio to 0–1 and does not reject negative input, so it can return a negative value. Never called from the app. |
+| `prorate_for_period` | `(value, elapsed, total)` | Returns `value * elapsed / total` with the ratio clamped to 0–1. Negative `elapsed`, non-positive `total` and zero `elapsed` all return `None` rather than a negative or infinite value. |
+| `week_overlap_days` | `(week_start, period_start, period_end)` | Calendar days the 7-day week beginning `week_start` shares with the inclusive period, 0–7. Ninety splits straddling weeks by day: a week of Oct 27 – Nov 2 gives `5` against October and `2` against November. |
+| `week_overlap_ratio` | `(week_start, period_start, period_end)` | `week_overlap_days / 7`, so 0–1. Public expression of Ninety's split ratio; `aggregate_entries_for_period` uses the day form. |
+| `aggregate_entries_for_period` | `(entries, period_start, period_end, rollup)` | Prorates every weekly entry by its `week_overlap_days` share of the period, then `aggregate_values` per `rollup` (`Total`/`Average`). Entries with no `actual_value` are skipped; `None` when nothing contributes. |
+| `normalise_view_by` | `(view_by)` | Maps a `Scorecard.timeframe` value to Ninety's View by vocabulary (`Weekly`→`Week`, `Monthly`→`Month`, `Quarterly`→`Quarter`, `Annual`→`Year`); returns `None` for anything else. |
+| `period_bounds` | `(anchor, view_by)` | `(start, end)` of the week / calendar month / calendar quarter / calendar year containing `anchor`. `None` for an unknown view or missing anchor. |
+| `advance_period` | `(period_start, view_by)` | The start of the next period, rolling over months, quarters and years. |
+| `period_label` | `(period_start, view_by)` | Ninety's column header text: ISO date for `Week`, `October 2026`, `Q4 2026`, `2026`. |
+| `rollup_periods` | `(view_by, range_start, range_end)` | Every period of `view_by` touched by the inclusive range, as `{view_by, label, period_start, period_end}` with ISO dates. `[]` for an unknown view or missing bound. |
+| `sort_metrics_by_group` | `(metrics, group_orders)` | Sorts metric dicts by `Measurable Group.order` using `group_key` (falling back to `group`), stable within a group. Metrics with no group sort **last**. Unknown groups are treated as order 0. |
+| `build_scorecard_review_lines` | `(metrics, group_orders=None)` | Group-ordered agenda text: a group header per group (`Ungrouped` for the ungrouped block) then `  Name (Indicator)`, omitting the indicator when there is none. Used to pre-fill the L10 "Scorecard Review" agenda item. |
 | `count_consecutive_off_track` | `(statuses)` | Returns trailing count of consecutive `Off Track` entries from the end of the list. |
 | `scorecard_summary` | `(statuses)` | Returns `{total, on_track, off_track}` counts for a list of entry statuses. |
 | `default_agenda_sections` | `()` | The six standard Level 10 agenda sections in order. |
@@ -463,13 +516,34 @@ See `docs/roadmap.md` for status. The target model adds:
 - `frequency` already lists Quarterly/Annual (Ninety ships 4 scorecards per team) even though entry
   UI defaults to weekly.
 - **There is no user interface.** `public/js` and `public/css` are empty, there are no client
-  scripts, and only three `@frappe.whitelist()` methods exist. `create_issue_from_metric` has no
-  UI trigger. Everything is reachable only through the default Frappe form or the console. The
-  Scorecard grid, column toggles, "View by" switch, trends view, bulk paste and PDF export remain
-  unbuilt — they are not tracked as a roadmap phase.
-- `aggregate_values`, `prorate_for_period` and `EOS Metric.rollup` are unit-tested but have no production
-  call site; the tests can suggest wiring that does not exist. (`compute_health` was removed, since it
-  encoded a tolerance rule Ninety does not use.)
-- `To Do.todo_name` is not enforced unique. `VTO` uses hash naming (there is no `format` autoname),
-  so VTO documents appear as hashes in list views.
+  scripts, and only four `@frappe.whitelist()` methods exist (`rock.mark_complete`,
+  `rock.get_rock_summary`, `scorecard_report.send_report`, `scorecard.get_rollup_view`).
+  `create_issue_from_metric` is server-side only with no UI trigger. Everything is reachable only
+  through the default Frappe form or the console. The Scorecard grid, column toggles, trends view
+  and bulk paste remain unbuilt — they are tracked as Phases 6 and 7 in the roadmap. The one piece
+  of Ninety's "View by" that is reachable today is `Scorecard.get_rollup_view`, a whitelisted
+  read-only endpoint (see §3g).
+- `week_overlap_ratio` and `quarter_bounds` are public, unit-tested and have no production call
+  site yet; `week_overlap_days`, `prorate_for_period`, `aggregate_values`, `is_period_complete` and
+  `EOS Metric.rollup` **are** wired (through `aggregate_entries_for_period` and
+  `Scorecard.get_rollup_view`). (`compute_health` was removed, since it encoded a tolerance rule
+  Ninety does not use.)
+- `To Do.todo_name` **is** enforced unique — it carries a real `unique: 1` DB index (verified in
+  `tabTo Do`, `Non_unique=0`), so a duplicate raises `frappe.DuplicateEntryError`. `Scorecard Report`
+  and `Quarterly Review` uniqueness is weaker: it is an **app-level Python check only, with no DB
+  index**, so neither is race-proof. A duplicate report or review can be created by two concurrent
+  requests. `VTO.organization` is likewise a real `unique: 1` index.
+- `VTO` and `Measurable Group` have **no `autoname` at all**, so both use Frappe hash naming and
+  appear as hashes in list views; `Measurable Group` also has no `title_field`, so its
+  `group_name` must be rendered explicitly. (An earlier roadmap claimed a `format` autoname for
+  `VTO`; there is none, in the JSON or in the live `tabDocType` row.)
+- The complete `autoname` map, verified against the JSON: `EOS Metric` `field:metric_name`,
+  `Issue` `field:issue_name`, `Organization` `field:organization_name`, `Player` `field:player_name`,
+  `Team` `field:team_name`, `Level 10 Meeting` `format:{team}-{meeting_date}`, `Scorecard`
+  `format:{team}-{timeframe}`, `Scorecard Report` `format:SCR-{team}-{week_start_date}`,
+  `Quarterly Review` `format:QR-{team}-{period_start}`, `Rock` `format:R-{rock_name}`, `To Do`
+  `format:TD-{todo_name}`; `VTO` and `Measurable Group` have none. All 11 child tables are hash-named.
+- The database holds **test residue only** — roughly one `Organization`, `Team`, `Player` and
+  `Scorecard`. Nothing has been exercised end-to-end by a real user, so "the tests pass" is not
+  evidence that a workflow works.
 - Known bugs and the full unwired list are in `docs/roadmap.md` § "Known gaps in Phases 1–5".

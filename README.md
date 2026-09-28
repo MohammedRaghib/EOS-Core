@@ -17,23 +17,21 @@ Ninety's data model and workflows built as a native Frappe app.
   and `Player` DocTypes; `EOS Metric` is now team-scoped with an owner-in-team rule.
 - **Phase 3 — Scorecards, Groups & Formulas: DONE.** Range operators (`Inside/Outside min/max`),
   `Scorecard` (team × timeframe), `Measurable Group`, Formula Builder with `{Name}` syntax,
-  `prorate_for_period`, and `count_consecutive_off_track`. Forecasting/custom period goals deferred.
-  Note: `prorate_for_period`, `aggregate_values` and the `rollup` field are **not wired to any call
-  site** yet, and `Measurable Group.order` is stored but never read.
+  `prorate_for_period`, `count_consecutive_off_track`, and the read-only "View by" rollup endpoint
+  `Scorecard.get_rollup_view`. Forecasting/custom period goals deferred.
 - **Phase 4 — Meetings & Reporting: DONE.** `Level 10 Meeting` (agenda + to-dos), `Issue`
   with the IDS workflow, "Make it an Issue" from an off-track measurable, and a weekly
   `Scorecard Report` with snapshot generation, off-track summary, trend detection, and
-  email sending via a Jinja template. 15 tests pass.
+  email sending via a Jinja template.
 - **Phase 5 — EOS Operating System: DONE.** `V/TO` (five auto-populated sections), `Rock`
   with milestone-gated completion that cascades linked To-Dos, forward-only `To Do`, and
-  `Quarterly Review` team snapshots (Rocks/To-Dos/Measurables). 17 tests pass.
-- **Test suite: 82 tests** (35 pure-engine unit + 47 integration) — all green. Run them all with
+  `Quarterly Review` team snapshots (Rocks/To-Dos/Measurables).
+- **Phase 6 (permissions) and Phase 7 (integrations, bulk UX, remaining Ninety parity) are not
+  started.** Every DocType is currently System Manager only.
+- **Test suite: 129 tests** (63 pure-engine unit + 66 integration) — all green. Run them all with
   `bench --site resolv.localhost run-tests --app eos_core`.
 - **No user interface yet.** `public/js` is empty and there are no client scripts, so everything is
   currently reachable only through the default Frappe forms or the console.
-- **Open bugs and unwired features are listed** in `docs/roadmap.md` § "Known gaps in Phases 1–5".
-  Read it before treating any phase as finished.
-- Phase 6 (permissions) and Phase 7 (integrations) are **not started**.
 
 ## Who is this README for?
 

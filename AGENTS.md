@@ -11,6 +11,25 @@ Read `docs/architecture.md` and `docs/roadmap.md` after this file.
 2. Do not change the DocType names `EOS Metric`, `Scorecard Entry`, or the `entries` Table field.
    Product terminology mapping to Ninety is described in `docs/architecture.md`.
 3. After editing any `*.json` schema, run `bench migrate` and verify the DocType synced.
+4. **This is a Ninety clone, so match Ninety.** When a behaviour is ambiguous, resolve it by
+   checking Ninety's documented behaviour — not by picking the tidier design, and not by asking
+   again. These five questions are already settled; do not re-open them:
+   - **UI last.** Build order is correctness → parity → **permissions** → UI.
+   - `compute_health` was deleted: it encoded a 10%-tolerance colour Ninety never shows.
+   - `To Do.todo_name` carries a real `unique` DB index.
+   - "View by" is a **read-only projection** over the existing `Scorecard`, not a new DocType.
+   - **Empty completed intervals count against** the status indicator.
+
+## Start here
+
+Read in this order, then work from the verified gap list in `docs/roadmap.md`:
+
+1. This file — rules, commands, gotchas.
+2. `docs/roadmap.md` — **the real work queue**, including "Known gaps in Phases 1–5".
+3. `docs/architecture.md` — domain model, engine contract, terminology mapping.
+4. `eos_core/scorecard_engine.py` — frappe-free pure logic; the home for all new pure functions.
+
+Never rely on a "DONE" marker to mean a feature is usable — see the distinction in the roadmap.
 
 ## Environment
 
@@ -39,6 +58,34 @@ bench --site resolv.localhost execute eos_core.scorecard_engine.compute_status \
   --kwargs '{"target_value": 100, "actual_value": 80, "operator": ">="}'
 ```
 
+Run one test module while iterating (much faster than the whole suite):
+
+```bash
+bench --site resolv.localhost run-tests \
+  --module eos_core.eos_core.doctype.scorecard_report.test_scorecard_report
+```
+
+Test the pure engine with no site or frappe import at all (~1s, no DB):
+
+```bash
+cd /workspace/development/frappe-bench && ./env/bin/python -c "
+import sys; sys.path.insert(0, 'apps/eos_core')
+from eos_core.scorecard_engine import compute_status
+print(compute_status(100, 0, '<='))"
+```
+
+Read-only DB introspection — pipe a script into the console:
+
+```bash
+cat > /tmp/q.py <<'EOF'
+print("IDX:", frappe.db.sql("show index from `tabTo Do` where Key_name != 'PRIMARY'"))
+EOF
+bench --site resolv.localhost console < /tmp/q.py
+```
+
+Note `bench execute /tmp/q.py` does **not** work — Frappe resolves the argument as an app module
+and raises `AppNotInstalledError`. Use the console for ad-hoc SQL.
+
 ## Repository layout
 
 ```
@@ -49,7 +96,7 @@ apps/eos_core/
 │   ├── architecture.md          # domain + data model + scoring logic (READ FIRST)
 │   └── roadmap.md               # phases, statuses, and what to build next
 └── eos_core/
-    ├── scorecard_engine.py      # PURE functions: status/achievement/health/aggregation/formulas
+    ├── scorecard_engine.py      # PURE functions: status/indicator/aggregation/formulas/rollup
     └── eos_core/doctype/
         ├── eos_metric/          # EOS Metric (Standard) + Table field `entries`
         ├── scorecard_entry/     # Scorecard Entry (Child, istable=1)
@@ -83,11 +130,11 @@ apps/eos_core/
 |---|---|---|
 | Metric master data | `EOS Metric` | DONE — `metric_name`, `owner`, `team`, `target_value`, `operator` (`>=`/`<=`/`==`/`Inside min/max`/`Outside min/max`), `min_value`, `max_value`, `frequency`, `unit`, `unit_type`, `rollup`, `is_smart`, `formula`, `scorecard`, `group`, `archived`, `description`, `entries` |
 | Period records | `Scorecard Entry` | DONE — `metric`, `week_start_date`, `actual_value`, `status` (On Track/Off Track), `is_manual` |
-| Scoring engine | `eos_core.scorecard_engine` | DONE — `compute_status`, `compute_achievement`, `compute_status_indicator`, `completed_period_statuses`, `aggregate_values`, `extract_variables`, `evaluate_formula`, `prorate_for_period`, `count_consecutive_off_track`, `scorecard_summary`, `default_agenda_sections`, `build_scorecard_report` |
+| Scoring engine | `eos_core.scorecard_engine` | DONE — status: `compute_status`, `compute_status_indicator`, `is_period_complete`, `completed_period_statuses`, `recent_completed_period_starts`. Achievement: `compute_achievement`. Rollup: `prorate_for_period`, `week_overlap_days`, `week_overlap_ratio`, `aggregate_entries_for_period`, `normalise_view_by`, `period_bounds`, `advance_period`, `period_label`, `rollup_periods`, `quarter_bounds`. Formulas: `extract_variables`, `evaluate_formula`, `validate_formula_syntax`. Aggregation/report: `aggregate_values`, `scorecard_summary`, `sort_metrics_by_group`, `build_scorecard_review_lines`, `build_scorecard_report`, `build_quarterly_review`, `count_consecutive_off_track`, `rollup_rock_summary`, `rollup_todo_summary`, `default_agenda_sections` |
 | Auto-status + formulas | `EOSMetric.validate` | DONE — range validation, auto-create Scorecard, formula validation/recalc, entry status loop |
 | Org structure | `Organization` / `Team` / `Player` | DONE — nested teams (cycle + cross-org validation), players mapped to users |
 | Scorecard header | `Scorecard` | DONE — `team` + `timeframe` (unique combo), format autoname, auto-created on metric save |
-| Measurable grouping | `Measurable Group` | DONE — `group_name`, `scorecard`, `order`; max 20 per scorecard, unique name per scorecard |
+| Measurable grouping | `Measurable Group` | DONE — `group_name`, `scorecard`, `order`; max 20 per scorecard, unique name per scorecard. `order` orders the report snapshot and the L10 review |
 | Meetings | `Level 10 Meeting` / `Meeting Agenda Item` / `Meeting To Do` | DONE — unique team+date, status transitions, default 6-item agenda auto-filled |
 | Issues (IDS) | `Issue` + `create_issue_from_metric` | DONE — forward-only transitions, solution required on Solve, "Make it an Issue" from off-track metric |
 | Scorecard report | `Scorecard Report` / `Scorecard Report Metric` | DONE — team×week snapshot, auto-populated metrics, summary + trend counts, `send_report` emails via Jinja template |
@@ -96,21 +143,40 @@ apps/eos_core/
 | To-Dos | `To Do` / `To Do Item` | DONE — forward-only status, `cascade_todo_transitions` |
 | Quarterly review | `Quarterly Review` | DONE — team × period snapshot of Rocks/To-Dos/Measurables |
 
-Tests: `bench --site resolv.localhost run-tests --app eos_core` runs the whole suite — 47
-integration + 35 pure-engine unit = **82 tests** (needs `allow_tests true`, already enabled on
-`resolv.localhost`). To run a single module, add
-`--module eos_core.eos_core.doctype.rock.test_rock`.
+Tests: `bench --site resolv.localhost run-tests --app eos_core` runs the whole suite in one go —
+**66 integration + 63 pure-engine unit = 129 tests**, all green (needs `allow_tests true`, already
+enabled on `resolv.localhost`). The split by file:
+
+| Integration test | Count |
+|---|---|
+| `doctype/eos_metric/test_eos_metric.py` | 10 |
+| `doctype/issue/test_issue.py` | 4 |
+| `doctype/level_10_meeting/test_level_10_meeting.py` | 7 |
+| `doctype/quarterly_review/test_quarterly_review.py` | 5 |
+| `doctype/rock/test_rock.py` | 5 |
+| `doctype/scorecard/test_scorecard.py` | 13 |
+| `doctype/scorecard_report/test_scorecard_report.py` | 12 |
+| `doctype/team/test_team.py` | 3 |
+| `doctype/to_do/test_to_do.py` | 5 |
+| `doctype/vto/test_vto.py` | 2 |
+| **Integration total** | **66** |
+| `eos_core/test_scorecard_engine.py` (unit, frappe-free) | **63** |
+
+Re-derive these with `grep -rc 'def test_'` rather than trusting the table — the documented totals
+have drifted more than once.
 
 Permissions are System Manager only for now (role model is Phase 6 in the roadmap).
 
 **There is no UI.** `public/js` and `public/css` are empty, there are no client scripts, and only
-three `@frappe.whitelist()` methods. Everything is reachable only via the default Frappe form or
-the console. Treat "DONE" in the table above as "the code exists and is unit-tested", not "the
+four `@frappe.whitelist()` methods (`rock.mark_complete`, `rock.get_rock_summary`,
+`scorecard_report.send_report`, `scorecard.get_rollup_view`). Everything is reachable only via the
+default Frappe form or the console. Treat "DONE" in the table above as "the code exists and is unit-tested", not "the
 feature is reachable by a user".
 
-**Read `docs/roadmap.md` § "Known gaps in Phases 1–5" before starting any phase.** It lists the
-unwired code (`aggregate_values`/`rollup`, `prorate_for_period`, `Measurable Group.order`) and the
-open logic bugs, so you do not mistake tested-but-unwired code for working functionality.
+**Read `docs/roadmap.md` § "Known gaps in Phases 1–5" before starting any phase.** It separates
+bugs that are *fixed* from those *still open* (4 remain), lists code that exists but has no call
+site, and records that the database holds only test residue — nothing has been exercised
+end-to-end by a user.
 
 ## Working conventions
 
@@ -123,28 +189,82 @@ open logic bugs, so you do not mistake tested-but-unwired code for working funct
   thin DocType controller methods for frappe glue (DB, sessions, events).
 - Don't commit unless explicitly asked.
 
+## Gotchas that have already cost time
+
+- **`Float` and `Int` columns are `NOT NULL DEFAULT 0`.** Frappe maps `Float` to
+  `decimal(21,9) NOT NULL DEFAULT 0.000000000`, so a reload gives you `0.0` and you **cannot**
+  distinguish "unset" from "explicitly zero" by value alone. This codebase treats `0` as unset —
+  see `compute_status`, which returns `"On Track"` when `target_value == 0`. It is a real bug source:
+  it made `validate_range_target` throw on *every* re-save of a non-range metric, because
+  `0 is not None`. Consequence: a legitimate range bound of exactly `0` cannot be expressed today.
+  `Measurable Group.order` has the same trap, where `0` means "unset", not "first".
+- **Never compare a `doc.field` to a DB value during `before_insert`.** Frappe has not cast the
+  attribute yet, so `self.week_start_date` is still a `str` while `frappe.get_all` returns a
+  `datetime.date` → `TypeError: '<' not supported between instances of 'datetime.date' and 'str'`.
+  Pass it to the engine's `_as_date`-backed helpers instead of comparing raw. Both the Scorecard
+  Report and the L10 Scorecard Review rely on this.
+- **Seeding a metric in a test requires a `Player` in that team** for the owner user, or
+  `EOSMetric.validate_owner_team` throws *"Owner ... has no Player record in team ..."*.
+- **Write tests date-independently.** Always pass explicit dates or an explicit `as_of`; never let
+  a test depend on `date.today()`. `test_rock` had a latent time bomb that would only have failed
+  from 2026-10-15. Week start dates are Mondays (`2026-08-17`, `2026-08-24`, …), and the status
+  indicator's grid is Monday-aligned, so a non-Monday entry never matches an interval and is
+  deliberately counted as a gap.
+- `tabSingles` occasionally raises `MySQLdb.OperationalError (1020, "Record has changed since last
+  read")` during test-env setup. It is infrastructure flakiness, not app code — re-run before
+  investigating.
+- **A failing test after a behaviour change is not automatically a wrong test.** Check whether the
+  test encoded the *old* rule before editing the assertion, and say so explicitly when the test was
+  the thing that was wrong.
+- `Measurable Group` display names are only unique *per Scorecard*, so key any group lookup by the
+  group's hash `name`, never by `group_name`.
+
+## What the product owner expects in how you work
+
+- The owner is a developer, **not an EOS domain expert**. They care about what actually works, and
+  the roadmap previously hid the difference between "code written" and "feature usable". Keep
+  reporting that distinction honestly; never let documentation overstate completion.
+- They value **verified** claims. Prefer running the code, querying the DB, or fetching the real
+  Ninety docs over asserting from memory, and flag anything you could not verify.
+- Plain answers with a verdict beat hedged ones. Tables work well for comparison and prioritisation.
+- Keep responses concise.
+
 ## What to build next
 
 See `docs/roadmap.md`. The **code** for Phases 1–5 exists and is tested, but the verified gap list
 in that roadmap is the real work queue — in order:
 
-1. **Block 1 — open logic bugs** (Rock double-count in `quarterly_review`, report ignoring its own
-   `week_start_date`, `validate_formula` rejecting valid formulas, `apply_formula` nulling
-   user-entered values, `compute_achievement` division by zero).
-2. **Block 2 — Ninety parity for the unwired features.**
-   - **2a DONE** — Ninety's status indicator (3 most recently *completed* periods: Green all on
-     track / Yellow ≥1 miss / Red all 3 miss / "No Recent Data") is implemented as
-     `compute_status_indicator` + `completed_period_statuses`, persisted on
-     `Scorecard Report Metric.status_indicator`. The non-Ninety 10%-tolerance `compute_health`
-     was deleted.
-   - **2b TODO** — `prorate_for_period` + `aggregate_values` + `rollup` are one feature (Ninety's
-     "View by" Week/Month/Quarter/Year aggregation). Weeks that straddle a period boundary are
-     split **by calendar day**, per Ninety: a week of Oct 27 – Nov 2 contributes 5/7 to October
-     and 2/7 to November. The aggregate is display-only and must not affect on-track status.
-   - **2c TODO** — `Measurable Group.order` must feed the L10 agenda order.
-3. **Block 3 — Phase 6 Permissions & Roles** (Owner/Admin/Coach/Manager/Team Member/Observer →
-   Frappe roles and DocPerm blocks). Ninety's matrix is published in its help centre.
-4. **Block 4 — UI**, currently absent entirely.
+1. **Block 1 — open logic bugs: DONE.** Five correctness bugs fixed, plus two found during testing
+   (the `Float` re-save trap above, and an `evaluate_formula` guard that counted the supplied dict
+   rather than the formula's variables). **Four remain open** — see the roadmap's "Still open" table.
+2. **Block 2 — Ninety parity: DONE.**
+   - **2a** — Ninety's status indicator (3 most recently *completed* periods: Green all on track /
+     Yellow ≥1 miss / Red all 3 miss / "No Recent Data") as `compute_status_indicator` +
+     `completed_period_statuses`, persisted on `Scorecard Report Metric.status_indicator`. The
+     non-Ninety 10%-tolerance `compute_health` was deleted.
+   - **2a follow-up** — the window is the last 3 *completed calendar intervals* with `None` for
+     unscored ones, and those count against the result, per Ninety's "empty periods count against
+     the calculation". Before this, gaps were invisible and a measurable with holes could wrongly
+     read `Green`.
+   - **2b** — "View by" as the whitelisted read-only `Scorecard.get_rollup_view`.
+     `week_overlap_days` splits straddling weeks **by calendar day** (a week of Oct 27 – Nov 2
+     contributes 5/7 to October and 2/7 to November) and `aggregate_entries_for_period` applies
+     `EOS Metric.rollup`. The aggregate is display-only: `status`, `status_indicator` and the
+     on/off-track counts are untouched, and the weekly `goal` is deliberately left unaggregated.
+   - **2c** — `sort_metrics_by_group` orders the report snapshot and the L10 "Scorecard Review"
+     agenda by `Measurable Group.order`, ungrouped last.
+3. **Block 3 — Phase 6 Permissions & Roles (next).** Every DocType is currently System Manager only.
+   Create the six roles (Owner, Admin, Coach, Manager, Team Member, Observer) and per-DocType
+   DocPerm blocks from Ninety's matrix, recorded in the roadmap. Two Ninety rules to honour: Team
+   Members may reorder measurables within a group **even ones they do not own**, and only
+   Owner/Admin/Coach see the Measurable Manager. Editing the `permissions` block in any `*.json`
+   requires `bench --site resolv.localhost migrate` afterwards.
+4. **Block 4 — UI**, currently absent entirely, and the largest remaining parity gap.
+
+Also outstanding, and smaller than any of the above: the 4 open bugs, `Player.user` uniqueness,
+empty-controller tests, dead engine constants, the misnamed `test_quarter_bounds_rolls_over_year`,
+and the formatting debt listed in the roadmap (1 file indented with spaces, 20 files missing a
+trailing newline).
 
 Re-read the roadmap before starting so naming and data flow stay consistent with the architecture
 document, and keep every behavioural decision grounded in Ninety's documented behaviour rather than

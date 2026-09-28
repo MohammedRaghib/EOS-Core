@@ -2,7 +2,11 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import format_datetime, get_datetime, now_datetime
 
-from eos_core.scorecard_engine import build_scorecard_report, completed_period_statuses
+from eos_core.scorecard_engine import (
+	build_scorecard_report,
+	completed_period_statuses,
+	sort_metrics_by_group,
+)
 
 TREND_THRESHOLD = 3
 EMAIL_TEMPLATE = "emails/weekly_scorecard_report.html"
@@ -24,12 +28,17 @@ class ScorecardReport(Document):
 	def populate_snapshot(self):
 		if not self.team:
 			return
-		metric_names = self._collect_metric_names()
+		metric_groups = self._collect_metric_groups()
+		group_details = self._group_details(list(metric_groups.values()))
 		blocks = []
-		for metric_name in metric_names:
-			block = self._build_metric_block(metric_name)
+		for metric_name, group_key in metric_groups.items():
+			details = group_details.get(group_key) or {}
+			block = self._build_metric_block(
+				metric_name, group_key, details.get("group_name") or ""
+			)
 			if block:
 				blocks.append(block)
+		blocks = sort_metrics_by_group(blocks, self._group_orders(group_details))
 		report = build_scorecard_report(blocks, trend_threshold=TREND_THRESHOLD)
 		self.total_metrics = report["summary"]["total"]
 		self.on_track = report["summary"]["on_track"]
@@ -50,34 +59,57 @@ class ScorecardReport(Document):
 				},
 			)
 
-	def _collect_metric_names(self):
-		team_metric_names = frappe.get_all(
+	def _collect_metric_groups(self):
+		rows = frappe.get_all(
 			"EOS Metric",
 			filters={"archived": 0, "team": self.team},
-			pluck="name",
+			fields=["name", "group"],
+			order_by="name asc",
 		)
-		global_metric_names = frappe.get_all(
+		global_rows = frappe.get_all(
 			"EOS Metric",
 			filters={"archived": 0, "team": ["is", "not set"]},
-			pluck="name",
+			fields=["name", "group"],
+			order_by="name asc",
 		)
-		return list(dict.fromkeys(team_metric_names + global_metric_names))
+		metric_groups = {}
+		for row in rows + global_rows:
+			metric_groups.setdefault(row.name, row.group)
+		return metric_groups
 
-	def _build_metric_block(self, metric_name):
+	def _group_details(self, group_keys):
+		group_keys = [key for key in group_keys if key]
+		if not group_keys:
+			return {}
+		return {
+			row.name: {"group_name": row.group_name, "order": row.order}
+			for row in frappe.get_all(
+				"Measurable Group",
+				filters={"name": ["in", group_keys]},
+				fields=["name", "group_name", "order"],
+			)
+		}
+
+	def _group_orders(self, group_details):
+		return {
+			key: details["order"] for key, details in (group_details or {}).items()
+		}
+
+	def _build_metric_block(self, metric_name, group_key=None, group_name=""):
 		metric = frappe.db.get_value(
 			"EOS Metric",
 			metric_name,
-			["owner", "group", "target_value", "operator", "unit"],
+			["owner", "target_value", "operator", "unit"],
 			as_dict=True,
 		)
 		if not metric:
 			return None
-		group_name = frappe.db.get_value("Measurable Group", metric.group, "group_name") or ""
 		entries = self._entries_up_to(metric_name)
 		latest = entries[-1] if entries else None
 		return {
 			"name": metric_name,
 			"group": group_name,
+			"group_key": group_key,
 			"owner": metric.owner,
 			"actual": latest.actual_value if latest else None,
 			"target": metric.target_value,

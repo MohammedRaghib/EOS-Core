@@ -39,6 +39,8 @@ class TestScorecardReport(IntegrationTestCase):
 				"frequency": "Weekly",
 			}
 		).insert()
+		good.append("entries", {"week_start_date": "2026-08-17", "actual_value": 105})
+		good.append("entries", {"week_start_date": "2026-08-24", "actual_value": 115})
 		good.append("entries", {"week_start_date": "2026-08-31", "actual_value": 110})
 		good.append("entries", {"week_start_date": "2026-09-07", "actual_value": 120})
 		good.save()
@@ -123,6 +125,66 @@ class TestScorecardReport(IntegrationTestCase):
 				}
 			).insert()
 
+	def test_snapshot_follows_measurable_group_order(self):
+		team = self._seed_metrics()
+		scorecard = frappe.db.get_value(
+			"Scorecard", {"team": team.name, "timeframe": "Weekly"}, "name"
+		)
+		second = frappe.get_doc(
+			{
+				"doctype": "Measurable Group",
+				"group_name": "SR Second",
+				"scorecard": scorecard,
+				"order": 1,
+			}
+		).insert()
+		first = frappe.get_doc(
+			{
+				"doctype": "Measurable Group",
+				"group_name": "SR First",
+				"scorecard": scorecard,
+				"order": 0,
+			}
+		).insert()
+		frappe.db.set_value("EOS Metric", "SR Good", "group", first.name)
+		frappe.db.set_value("EOS Metric", "SR Bad", "group", second.name)
+		report = frappe.get_doc(
+			{
+				"doctype": "Scorecard Report",
+				"team": team.name,
+				"week_start_date": "2026-09-07",
+			}
+		).insert()
+		rows = [(row.group, row.metric) for row in report.report_metrics]
+		self.assertEqual(
+			rows, [("SR First", "SR Good"), ("SR Second", "SR Bad")]
+		)
+
+	def test_snapshot_places_ungrouped_metrics_last(self):
+		team = self._seed_metrics()
+		scorecard = frappe.db.get_value(
+			"Scorecard", {"team": team.name, "timeframe": "Weekly"}, "name"
+		)
+		group = frappe.get_doc(
+			{
+				"doctype": "Measurable Group",
+				"group_name": "SR Only Group",
+				"scorecard": scorecard,
+				"order": 0,
+			}
+		).insert()
+		frappe.db.set_value("EOS Metric", "SR Good", "group", group.name)
+		report = frappe.get_doc(
+			{
+				"doctype": "Scorecard Report",
+				"team": team.name,
+				"week_start_date": "2026-09-07",
+			}
+		).insert()
+		rows = [(row.group, row.metric) for row in report.report_metrics]
+		self.assertEqual(rows[-1], ("", "SR Bad"))
+		self.assertEqual(rows[0], ("SR Only Group", "SR Good"))
+
 	def test_send_report(self):
 		team = self._seed_metrics()
 		report = frappe.get_doc(
@@ -156,6 +218,9 @@ class TestScorecardReport(IntegrationTestCase):
 
 	def test_status_indicator_ignores_in_progress_report_week(self):
 		team = self._seed_metrics()
+		off_track = frappe.get_doc("EOS Metric", "SR Good")
+		off_track.append("entries", {"week_start_date": "2026-09-14", "actual_value": 20})
+		off_track.save()
 		report = frappe.get_doc(
 			{
 				"doctype": "Scorecard Report",
@@ -168,6 +233,31 @@ class TestScorecardReport(IntegrationTestCase):
 		bad = next(row for row in report.report_metrics if row.metric == "SR Bad")
 		self.assertEqual(bad.status_indicator, "Red")
 		self.assertEqual(good.status_indicator, "Green")
+
+	def test_status_indicator_counts_empty_intervals_against(self):
+		team = self._seed_metrics()
+		sparse = frappe.get_doc(
+			{
+				"doctype": "EOS Metric",
+				"metric_name": "SR Sparse",
+				"owner": "Administrator",
+				"team": team.name,
+				"target_value": 100,
+				"operator": ">=",
+				"frequency": "Weekly",
+			}
+		).insert()
+		sparse.append("entries", {"week_start_date": "2026-09-07", "actual_value": 120})
+		sparse.save()
+		report = frappe.get_doc(
+			{
+				"doctype": "Scorecard Report",
+				"team": team.name,
+				"week_start_date": "2026-09-14",
+			}
+		).insert()
+		row = next(row for row in report.report_metrics if row.metric == "SR Sparse")
+		self.assertEqual(row.status_indicator, "Yellow")
 
 	def test_status_indicator_no_recent_data(self):
 		team = frappe.get_doc({"doctype": "Team", "team_name": "SR Empty"}).insert()

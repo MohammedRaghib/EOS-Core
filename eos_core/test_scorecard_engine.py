@@ -3,9 +3,12 @@ import unittest
 
 from eos_core.scorecard_engine import (
 	STATUS_INDICATORS,
+	aggregate_entries_for_period,
 	aggregate_values,
+	advance_period,
 	build_quarterly_review,
 	build_scorecard_report,
+	build_scorecard_review_lines,
 	compute_achievement,
 	compute_status,
 	compute_status_indicator,
@@ -15,12 +18,20 @@ from eos_core.scorecard_engine import (
 	evaluate_formula,
 	extract_variables,
 	is_period_complete,
+	normalise_view_by,
+	period_bounds,
+	period_label,
 	prorate_for_period,
 	quarter_bounds,
+	recent_completed_period_starts,
+	rollup_periods,
 	rollup_rock_summary,
 	rollup_todo_summary,
 	scorecard_summary,
+	sort_metrics_by_group,
 	validate_formula_syntax,
+	week_overlap_days,
+	week_overlap_ratio,
 )
 
 
@@ -118,7 +129,7 @@ class TestScorecardEngine(unittest.TestCase):
 			{"week_start_date": "2026-09-28", "status": "Off Track"},
 		]
 		completed = completed_period_statuses(entries, today="2026-09-28")
-		self.assertEqual(completed, ["On Track", "Off Track", "On Track", "Off Track"])
+		self.assertEqual(completed, ["Off Track", "On Track", "Off Track"])
 		self.assertEqual(compute_status_indicator(completed), "Yellow")
 
 	def test_completed_period_statuses_sorted_oldest_first(self):
@@ -126,11 +137,61 @@ class TestScorecardEngine(unittest.TestCase):
 			{"week_start_date": datetime.date(2026, 9, 14), "status": "Off Track"},
 			{"week_start_date": datetime.date(2026, 9, 7), "status": "On Track"},
 		]
-		self.assertEqual(completed_period_statuses(entries, today="2026-09-28"), ["On Track", "Off Track"])
+		completed = completed_period_statuses(entries, today="2026-09-21")
+		self.assertEqual(completed, [None, "On Track", "Off Track"])
 
 	def test_completed_period_statuses_ignores_missing_dates(self):
-		entries = [{"status": "On Track"}, {"week_start_date": None, "status": "Off Track"}]
-		self.assertEqual(completed_period_statuses(entries, today="2026-09-28"), [])
+		entries = [
+			{"status": "On Track"},
+			{"week_start_date": None, "status": "Off Track"},
+			{"week_start_date": "2026-08-31", "status": "On Track"},
+		]
+		completed = completed_period_statuses(entries, today="2026-09-07")
+		self.assertEqual(completed, [None, None, "On Track"])
+
+	def test_completed_period_statuses_fills_gaps_with_none(self):
+		entries = [
+			{"week_start_date": "2026-08-17", "status": "Off Track"},
+			{"week_start_date": "2026-08-24", "status": "On Track"},
+			{"week_start_date": "2026-08-31", "status": "On Track"},
+		]
+		completed = completed_period_statuses(entries, today="2026-09-14")
+		self.assertEqual(completed, ["On Track", "On Track", None])
+		self.assertEqual(compute_status_indicator(completed), "Yellow")
+
+	def test_recent_completed_period_starts_excludes_current_week(self):
+		self.assertEqual(
+			recent_completed_period_starts("2026-09-28"),
+			[
+				datetime.date(2026, 9, 7),
+				datetime.date(2026, 9, 14),
+				datetime.date(2026, 9, 21),
+			],
+		)
+		self.assertEqual(
+			recent_completed_period_starts("2026-09-27"),
+			[
+				datetime.date(2026, 8, 31),
+				datetime.date(2026, 9, 7),
+				datetime.date(2026, 9, 14),
+			],
+		)
+
+	def test_empty_completed_intervals_count_against_indicator(self):
+		self.assertEqual(compute_status_indicator([None, "On Track", "On Track"]), "Yellow")
+		self.assertEqual(compute_status_indicator([None, None, "Off Track"]), "Red")
+		self.assertEqual(compute_status_indicator([None, None, None]), "No Recent Data")
+		self.assertEqual(compute_status_indicator(["On Track"] * 3), "Green")
+
+	def test_indicator_uses_monday_aligned_weekly_grid(self):
+		entries = [
+			{"week_start_date": "2026-08-17", "status": "On Track"},
+			{"week_start_date": "2026-08-24", "status": "On Track"},
+			{"week_start_date": "2026-08-30", "status": "On Track"},
+		]
+		completed = completed_period_statuses(entries, today="2026-09-07")
+		self.assertEqual(completed, ["On Track", "On Track", None])
+		self.assertEqual(compute_status_indicator(completed), "Yellow")
 
 	def test_aggregate_values(self):
 		self.assertEqual(aggregate_values([1, 2, None, 3], "Total"), 6.0)
@@ -199,6 +260,201 @@ class TestScorecardEngine(unittest.TestCase):
 		self.assertEqual(prorate_for_period(100, 8, 7), 100.0)
 		self.assertIsNone(prorate_for_period(None, 3, 7))
 		self.assertIsNone(prorate_for_period(100, 3, 0))
+
+	def test_prorate_for_period_rejects_negative_input(self):
+		self.assertIsNone(prorate_for_period(100, -3, 7))
+		self.assertIsNone(prorate_for_period(100, 3, -7))
+		self.assertIsNone(prorate_for_period(100, 0, 7))
+		self.assertIsNone(prorate_for_period(100, -3, -7))
+
+	def test_week_overlap_days_splits_by_calendar_day(self):
+		self.assertEqual(week_overlap_days("2026-10-27", "2026-10-01", "2026-10-31"), 5)
+		self.assertEqual(week_overlap_days("2026-10-27", "2026-11-01", "2026-11-30"), 2)
+		self.assertEqual(week_overlap_days("2026-10-19", "2026-10-01", "2026-10-31"), 7)
+		self.assertEqual(week_overlap_days("2026-09-28", "2026-11-01", "2026-11-30"), 0)
+		self.assertEqual(week_overlap_days("2026-12-28", "2026-12-01", "2026-12-31"), 4)
+		self.assertEqual(week_overlap_days("2026-12-28", "2027-01-01", "2027-01-31"), 3)
+
+	def test_week_overlap_ratio_is_bounded(self):
+		self.assertAlmostEqual(
+			week_overlap_ratio("2026-10-27", "2026-10-01", "2026-10-31"), 5 / 7
+		)
+		self.assertAlmostEqual(
+			week_overlap_ratio("2026-10-27", "2026-11-01", "2026-11-30"), 2 / 7
+		)
+		self.assertEqual(week_overlap_ratio("2026-10-19", "2026-10-01", "2026-10-31"), 1.0)
+		self.assertEqual(week_overlap_ratio("2026-08-03", "2026-10-01", "2026-10-31"), 0.0)
+
+	def test_week_overlap_days_ignores_unparseable_dates(self):
+		self.assertEqual(week_overlap_days(None, "2026-10-01", "2026-10-31"), 0)
+		self.assertEqual(week_overlap_days("2026-10-27", None, "2026-10-31"), 0)
+		self.assertEqual(week_overlap_days("2026-10-27", "2026-10-01", "not-a-date"), 0)
+
+	def test_aggregate_entries_for_period_splits_straddling_week(self):
+		entries = [
+			{"week_start_date": "2026-10-19", "actual_value": 70},
+			{"week_start_date": "2026-10-26", "actual_value": 70},
+			{"week_start_date": "2026-11-02", "actual_value": 70},
+		]
+		october = aggregate_entries_for_period(entries, "2026-10-01", "2026-10-31", "Total")
+		november = aggregate_entries_for_period(entries, "2026-11-01", "2026-11-30", "Total")
+		self.assertAlmostEqual(october, 70 + 60)
+		self.assertAlmostEqual(november, 10 + 70)
+
+	def test_aggregate_entries_for_period_honours_rollup(self):
+		entries = [
+			{"week_start_date": "2026-10-19", "actual_value": 70},
+			{"week_start_date": "2026-10-26", "actual_value": 70},
+		]
+		average = aggregate_entries_for_period(entries, "2026-10-01", "2026-10-31", "Average")
+		self.assertAlmostEqual(average, (70 + 60) / 2)
+
+	def test_aggregate_entries_for_period_skips_unscored_entries(self):
+		entries = [
+			{"week_start_date": "2026-10-19", "actual_value": None},
+			{"week_start_date": "2026-10-26", "actual_value": 70},
+		]
+		total = aggregate_entries_for_period(entries, "2026-10-01", "2026-10-31", "Total")
+		self.assertAlmostEqual(total, 60)
+
+	def test_aggregate_entries_for_period_without_contributors(self):
+		entries = [{"week_start_date": "2026-08-03", "actual_value": 70}]
+		self.assertIsNone(aggregate_entries_for_period(entries, "2026-10-01", "2026-10-31", "Total"))
+		self.assertIsNone(aggregate_entries_for_period([], "2026-10-01", "2026-10-31", "Total"))
+		self.assertIsNone(aggregate_entries_for_period(None, "2026-10-01", "2026-10-31", "Total"))
+
+	def test_normalise_view_by_accepts_scorecard_timeframes(self):
+		self.assertEqual(normalise_view_by("Weekly"), "Week")
+		self.assertEqual(normalise_view_by("Monthly"), "Month")
+		self.assertEqual(normalise_view_by("Quarterly"), "Quarter")
+		self.assertEqual(normalise_view_by("Annual"), "Year")
+		self.assertEqual(normalise_view_by("Month"), "Month")
+		self.assertIsNone(normalise_view_by("Fortnight"))
+		self.assertIsNone(normalise_view_by(None))
+
+	def test_period_bounds_per_view(self):
+		self.assertEqual(
+			period_bounds("2026-10-27", "Week"),
+			(datetime.date(2026, 10, 27), datetime.date(2026, 11, 2)),
+		)
+		self.assertEqual(
+			period_bounds("2026-10-27", "Month"),
+			(datetime.date(2026, 10, 1), datetime.date(2026, 10, 31)),
+		)
+		self.assertEqual(
+			period_bounds("2026-11-02", "Quarter"),
+			(datetime.date(2026, 10, 1), datetime.date(2026, 12, 31)),
+		)
+		self.assertEqual(
+			period_bounds("2026-02-05", "Year"),
+			(datetime.date(2026, 1, 1), datetime.date(2026, 12, 31)),
+		)
+		self.assertIsNone(period_bounds("2026-10-27", "Decade"))
+		self.assertIsNone(period_bounds(None, "Month"))
+
+	def test_advance_period_rolls_over_year(self):
+		self.assertEqual(advance_period("2026-10-27", "Week"), datetime.date(2026, 11, 3))
+		self.assertEqual(advance_period("2026-10-01", "Month"), datetime.date(2026, 11, 1))
+		self.assertEqual(advance_period("2026-12-01", "Month"), datetime.date(2027, 1, 1))
+		self.assertEqual(advance_period("2026-10-01", "Quarter"), datetime.date(2027, 1, 1))
+		self.assertEqual(advance_period("2026-07-01", "Quarter"), datetime.date(2026, 10, 1))
+		self.assertEqual(advance_period("2026-01-01", "Year"), datetime.date(2027, 1, 1))
+
+	def test_period_label_matches_ninety_headers(self):
+		self.assertEqual(period_label("2026-10-01", "Month"), "October 2026")
+		self.assertEqual(period_label("2026-10-01", "Quarter"), "Q4 2026")
+		self.assertEqual(period_label("2026-01-01", "Quarter"), "Q1 2026")
+		self.assertEqual(period_label("2026-01-01", "Year"), "2026")
+		self.assertEqual(period_label("2026-10-27", "Week"), "2026-10-27")
+
+	def test_rollup_periods_covers_range(self):
+		periods = rollup_periods("Month", "2026-10-27", "2026-12-15")
+		self.assertEqual(
+			[period["label"] for period in periods],
+			["October 2026", "November 2026", "December 2026"],
+		)
+		self.assertEqual(periods[0]["period_start"], "2026-10-01")
+		self.assertEqual(periods[0]["period_end"], "2026-10-31")
+		self.assertEqual(periods[0]["view_by"], "Month")
+
+	def test_rollup_periods_rolls_across_year_boundary(self):
+		periods = rollup_periods("Quarter", "2026-11-02", "2027-02-02")
+		self.assertEqual(
+			[period["label"] for period in periods],
+			["Q4 2026", "Q1 2027"],
+		)
+
+	def test_rollup_periods_rejects_unknown_view(self):
+		self.assertEqual(rollup_periods("Decade", "2026-10-01", "2026-12-31"), [])
+		self.assertEqual(rollup_periods("Month", None, "2026-12-31"), [])
+
+	def test_sort_metrics_by_group_uses_group_order(self):
+		metrics = [
+			{"name": "C", "group": "Third", "group_key": "g3"},
+			{"name": "A", "group": "First", "group_key": "g1"},
+			{"name": "B", "group": "Second", "group_key": "g2"},
+		]
+		sorted_metrics = sort_metrics_by_group(metrics, {"g1": 0, "g2": 1, "g3": 2})
+		self.assertEqual([metric["name"] for metric in sorted_metrics], ["A", "B", "C"])
+
+	def test_sort_metrics_by_group_places_ungrouped_last(self):
+		metrics = [
+			{"name": "Loose", "group": "", "group_key": None},
+			{"name": "A", "group": "First", "group_key": "g1"},
+			{"name": "Loose Two", "group": None, "group_key": None},
+		]
+		sorted_metrics = sort_metrics_by_group(metrics, {"g1": 0})
+		self.assertEqual(
+			[metric["name"] for metric in sorted_metrics], ["A", "Loose", "Loose Two"]
+		)
+
+	def test_sort_metrics_by_group_treats_missing_order_as_zero(self):
+		metrics = [
+			{"name": "B", "group": "Second", "group_key": "g2"},
+			{"name": "A", "group": "First", "group_key": "unknown"},
+		]
+		sorted_metrics = sort_metrics_by_group(metrics, {"g2": 1})
+		self.assertEqual([metric["name"] for metric in sorted_metrics], ["A", "B"])
+
+	def test_sort_metrics_by_group_is_stable_within_a_group(self):
+		metrics = [
+			{"name": "One", "group": "First", "group_key": "g1"},
+			{"name": "Two", "group": "First", "group_key": "g1"},
+			{"name": "Three", "group": "First", "group_key": "g1"},
+		]
+		sorted_metrics = sort_metrics_by_group(metrics, {"g1": 0})
+		self.assertEqual(
+			[metric["name"] for metric in sorted_metrics], ["One", "Two", "Three"]
+		)
+
+	def test_sort_metrics_by_group_handles_empty_input(self):
+		self.assertEqual(sort_metrics_by_group([], {}), [])
+		self.assertEqual(sort_metrics_by_group(None, {}), [])
+
+	def test_build_scorecard_review_lines_groups_and_annotates(self):
+		metrics = [
+			{"name": "C", "group": "Ops", "group_key": "g2", "status_indicator": "Red"},
+			{"name": "A", "group": "Growth", "group_key": "g1", "status_indicator": "Green"},
+			{"name": "B", "group": "Growth", "group_key": "g1", "status_indicator": None},
+			{"name": "D", "group": "", "group_key": None, "status_indicator": "No Recent Data"},
+		]
+		lines = build_scorecard_review_lines(metrics, {"g1": 0, "g2": 1})
+		self.assertEqual(
+			lines,
+			[
+				"Growth",
+				"  A (Green)",
+				"  B",
+				"Ops",
+				"  C (Red)",
+				"Ungrouped",
+				"  D (No Recent Data)",
+			],
+		)
+
+	def test_build_scorecard_review_lines_without_metrics(self):
+		self.assertEqual(build_scorecard_review_lines([], {}), [])
+		self.assertEqual(build_scorecard_review_lines(None, {}), [])
 
 	def test_count_consecutive_off_track(self):
 		self.assertEqual(count_consecutive_off_track(["On Track", "Off Track", "Off Track"]), 2)
