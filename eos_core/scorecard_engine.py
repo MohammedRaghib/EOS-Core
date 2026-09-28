@@ -43,6 +43,8 @@ def compute_achievement(target_value, actual_value, operator, min_value=None, ma
 	if operator == ">=":
 		return _clamp(actual_value / target_value * 100)
 	if operator == "<=":
+		if actual_value == 0:
+			return 100.0 if target_value > 0 else 0.0
 		return _clamp(target_value / actual_value * 100)
 	if operator == "==":
 		return _clamp((1 - abs(target_value - actual_value) / abs(target_value)) * 100)
@@ -88,7 +90,7 @@ def extract_variables(formula):
 
 def evaluate_formula(formula, variables=None):
 	variables = variables or {}
-	if len(variables) > MAX_FORMULA_VARIABLES:
+	if len(extract_variables(formula)) > MAX_FORMULA_VARIABLES:
 		return None
 	expression = formula or ""
 	for name in extract_variables(expression):
@@ -105,6 +107,23 @@ def evaluate_formula(formula, variables=None):
 		return _eval_ast(tree.body)
 	except (SyntaxError, ZeroDivisionError, ValueError, TypeError, OverflowError):
 		return None
+
+
+def validate_formula_syntax(formula):
+	expression = formula or ""
+	if not expression:
+		return False
+	for name in extract_variables(expression):
+		expression = expression.replace("{" + name + "}", "0.0")
+	if "{" in expression or "}" in expression:
+		return False
+	if not _SAFE_EXPRESSION.match(expression):
+		return False
+	try:
+		ast.parse(expression, mode="eval")
+	except (SyntaxError, ValueError, TypeError):
+		return False
+	return True
 
 
 def prorate_for_period(value, elapsed, total):

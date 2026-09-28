@@ -17,6 +17,7 @@ from eos_core.scorecard_engine import (
 	rollup_rock_summary,
 	rollup_todo_summary,
 	scorecard_summary,
+	validate_formula_syntax,
 )
 
 
@@ -40,6 +41,12 @@ class TestScorecardEngine(unittest.TestCase):
 		self.assertEqual(compute_achievement(100, 140, ">="), 100.0)
 		self.assertEqual(compute_achievement(100, 50, "<="), 100.0)
 		self.assertIsNone(compute_achievement(0, 50, ">="))
+
+	def test_compute_achievement_zero_actual(self):
+		self.assertEqual(compute_achievement(100, 0, "<="), 100.0)
+		self.assertEqual(compute_achievement(-100, 0, "<="), 0.0)
+		self.assertEqual(compute_achievement(100, 0, ">="), 0.0)
+		self.assertEqual(compute_achievement(100, 0, "=="), 0.0)
 
 	def test_compute_health_bands(self):
 		self.assertEqual(compute_health(100, 110, ">="), "Green")
@@ -103,6 +110,20 @@ class TestScorecardEngine(unittest.TestCase):
 		variables = {f"m{index}": 1 for index in range(26)}
 		formula = " + ".join("{" + name + "}" for name in variables)
 		self.assertIsNone(evaluate_formula(formula, variables))
+		over_limit_formula = " + ".join("{" + f"m{index}" + "}" for index in range(26))
+		self.assertIsNone(evaluate_formula(over_limit_formula, {"m0": 1, "m1": 1, "m2": 1}))
+
+	def test_validate_formula_syntax(self):
+		self.assertTrue(validate_formula_syntax("{a} + {b}"))
+		self.assertTrue(validate_formula_syntax("{a} * 2 - {b} / 4"))
+		self.assertTrue(validate_formula_syntax("{a} / (1 - {b})"))
+		self.assertTrue(validate_formula_syntax("2 + 2"))
+		self.assertFalse(validate_formula_syntax(""))
+		self.assertFalse(validate_formula_syntax("{a} + foo"))
+		self.assertFalse(validate_formula_syntax('{a} + __import__("os")'))
+		self.assertFalse(validate_formula_syntax("{a}{b}"))
+		self.assertFalse(validate_formula_syntax("{a} * 2 +"))
+		self.assertFalse(validate_formula_syntax("{a} + {b"))
 
 	def test_prorate_for_period(self):
 		self.assertAlmostEqual(prorate_for_period(100, 3, 7), 300 / 7)

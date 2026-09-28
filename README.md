@@ -18,14 +18,22 @@ Ninety's data model and workflows built as a native Frappe app.
 - **Phase 3 — Scorecards, Groups & Formulas: DONE.** Range operators (`Inside/Outside min/max`),
   `Scorecard` (team × timeframe), `Measurable Group`, Formula Builder with `{Name}` syntax,
   `prorate_for_period`, and `count_consecutive_off_track`. Forecasting/custom period goals deferred.
+  Note: `prorate_for_period`, `aggregate_values` and the `rollup` field are **not wired to any call
+  site** yet, and `Measurable Group.order` is stored but never read.
 - **Phase 4 — Meetings & Reporting: DONE.** `Level 10 Meeting` (agenda + to-dos), `Issue`
   with the IDS workflow, "Make it an Issue" from an off-track measurable, and a weekly
   `Scorecard Report` with snapshot generation, off-track summary, trend detection, and
-  email sending via a Jinja template. 24 tests pass.
+  email sending via a Jinja template. 10 tests pass.
 - **Phase 5 — EOS Operating System: DONE.** `V/TO` (five auto-populated sections), `Rock`
   with milestone-gated completion that cascades linked To-Dos, forward-only `To Do`, and
-  `Quarterly Review` team snapshots (Rocks/To-Dos/Measurables). 56 tests pass.
-- Phases 6–7 (permissions, integrations) are **planned** — see `docs/roadmap.md`.
+  `Quarterly Review` team snapshots (Rocks/To-Dos/Measurables). 15 tests pass.
+- **Test suite: 69 tests** (26 pure-engine unit + 43 integration) — all green. Run them all with
+  `bench --site resolv.localhost run-tests --app eos_core`.
+- **No user interface yet.** `public/js` is empty and there are no client scripts, so everything is
+  currently reachable only through the default Frappe forms or the console.
+- **Open bugs and unwired features are listed** in `docs/roadmap.md` § "Known gaps in Phases 1–5".
+  Read it before treating any phase as finished.
+- Phase 6 (permissions) and Phase 7 (integrations) are **not started**.
 
 ## Who is this README for?
 

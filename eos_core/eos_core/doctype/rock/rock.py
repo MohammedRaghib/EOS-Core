@@ -58,7 +58,7 @@ class Rock(Document):
 		)
 
 	@frappe.whitelist()
-	def get_rock_summary(self):
+	def get_rock_summary(self, as_of=None):
 		todos = frappe.get_all(
 			"To Do", filters={"rock": self.name}, fields=["status", "due_date"]
 		)
@@ -68,6 +68,6 @@ class Rock(Document):
 				"total": len(self.milestones),
 				"complete": sum(1 for milestone in self.milestones if milestone.completed),
 			},
-			"todos": rollup_todo_summary(todos),
+			"todos": rollup_todo_summary(todos, as_of=as_of),
 			"linked_todos": len(todos),
 		}

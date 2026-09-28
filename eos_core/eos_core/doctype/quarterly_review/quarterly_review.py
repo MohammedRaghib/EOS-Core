@@ -61,8 +61,11 @@ class QuarterlyReview(Document):
 			},
 			fields=["name", "status"],
 		)
-		rows = []
+		by_name = {}
 		for rock in company_rocks + team_rocks:
+			by_name.setdefault(rock.name, rock)
+		rows = []
+		for rock in by_name.values():
 			milestones = frappe.get_all(
 				"Rock Milestone",
 				filters={"parenttype": "Rock", "parent": rock.name},

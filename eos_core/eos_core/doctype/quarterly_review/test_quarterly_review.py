@@ -146,6 +146,37 @@ class TestQuarterlyReview(IntegrationTestCase):
 
 		self.assertEqual(review.rock_total, 2)
 
+	def test_company_rock_on_own_team_counted_once(self):
+		org = frappe.get_doc({"doctype": "Organization", "organization_name": "QR Dedupe Org"}).insert()
+		team = frappe.get_doc(
+			{"doctype": "Team", "team_name": "QR Dedupe Team", "organization": org.name}
+		).insert()
+		frappe.get_doc(
+			{
+				"doctype": "Rock",
+				"rock_name": "QR Both Scope Rock",
+				"status": "In Progress",
+				"owner_user": "Administrator",
+				"scope": "Company",
+				"team": team.name,
+				"duration_start": "2026-10-01",
+				"duration_end": "2026-12-31",
+			}
+		).insert()
+
+		review = frappe.get_doc(
+			{
+				"doctype": "Quarterly Review",
+				"team": team.name,
+				"period_start": "2026-10-01",
+				"period_end": "2026-12-31",
+			}
+		).insert()
+
+		self.assertEqual(review.rock_total, 1)
+		self.assertEqual(review.rock_active, 1)
+		self.assertEqual(review.rock_complete, 0)
+
 	def test_overdue_relative_to_period_end(self):
 		org = frappe.get_doc({"doctype": "Organization", "organization_name": "QR Overdue Org"}).insert()
 		team = frappe.get_doc({"doctype": "Team", "team_name": "QR Overdue Team", "organization": org.name}).insert()

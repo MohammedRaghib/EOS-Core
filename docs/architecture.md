@@ -23,10 +23,10 @@ Ninety is built around these tools:
 | Scorecard (Weekly/Monthly/Quarterly/Annual) | `frequency` on `EOS Metric` | A metric belongs to exactly one timeframe; you cannot convert it later |
 | Orientation rule (Greater than / Less than / Equal to / ranges) | `operator` on `EOS Metric` | `>=`, `<=`, `==`, `Inside min/max`, `Outside min/max` implemented |
 | Unit type (Number/Currency/Percentage/Yes/No/Time) | `unit_type` on `EOS Metric` | Display + rollup behaviour; permanent after data entry |
-| Rollup (Total/Average) | `rollup` on `EOS Metric` | How weekly values aggregate into Month/Quarter/Year views |
-| Groups | `Measurable Group` (Phase 3) | Up to 20 labelled groups per Scorecard; linked from `EOS Metric.group` |
+| Rollup (Total/Average) | `rollup` on `EOS Metric` | Ninety's "Show rollup data as" option. Governs how weekly values aggregate into Month/Quarter/Year "View by" views. **Stored but not yet wired to any call site.** |
+| Groups | `Measurable Group` (Phase 3) | Up to 20 labelled groups per Scorecard; linked from `EOS Metric.group`. `order` is stored but never read; Ninety carries group order into the L10 agenda |
 | Team / Org levels (1–5) | `Organization` / `Team` / `Player` | One `Organization`, nested `Team`s (Leadership → Department → Team), `Player`s per team |
-| Status colors (green/yellow/red) | `status` + `compute_health` | `On Track` / `Off Track` stored; `Green/Yellow/Red` derived |
+| Status colors (green/yellow/red) | **not implemented** | Ninety derives the indicator from the 3 most recently **completed** reporting intervals: Green = on target for all 3, Yellow = missed at least one, Red = missed all 3, plus a "No Recent Data" state when none of the 3 are scored. The current in-progress period is excluded. This app stores `On Track`/`Off Track` per entry only and has **no** indicator implementation. The existing `compute_health` is a 10%-tolerance single-value check, is never called, and does not match this rule. |
 | Off-track 3 weeks → Issue | `count_consecutive_off_track` (Phase 3) | Right-click "Make it an Issue" workflow (Phase 4) |
 | Formula Builder (Smart Measurable) | `is_smart` + `formula` on `EOS Metric` (Phase 3) | Computed measurables referencing other measurables via `{Name}` syntax (max 25 vars) |
 | Scorecard (Phase 3) | `Scorecard` DocType | `team` + `timeframe` combination; auto-created when team metric saved |
@@ -380,17 +380,17 @@ Pure, frappe-free functions so they are trivially testable. Behaviour (defaults,
 |---|---|---|
 | `compute_status` | `(target_value, actual_value, operator, min_value=None, max_value=None)` | `On Track`/`Off Track`. Ranges: Inside = on-track within bounds; Outside = on-track outside bounds. `>=`: actual ≥ target. `<=`: actual ≤ target. `==`: exact equality. Missing actual → `None`. Missing target → `On Track`. |
 | `compute_achievement` | `(target_value, actual_value, operator, min_value=None, max_value=None)` | Percent of goal, clamped 0–100. Ranges: Inside = 100 in-range, else ratio to boundary. Outside = 100 outside, else distance-to-edge. |
-| `compute_health` | `(target_value, actual_value, operator, tolerance=0.1, min_value=None, max_value=None)` | Ninety-style colour: `Green` (on target), `Yellow` (within `tolerance` of target), `Red` (off). |
+| `compute_health` | `(target_value, actual_value, operator, tolerance=0.1, min_value=None, max_value=None)` | `Green`/`Yellow`/`Red` by proximity to target within `tolerance`. **Not Ninety's status-indicator algorithm** (that is a 3-completed-interval window), and **not called anywhere in the app**. Candidate for removal. |
 | `aggregate_values` | `(values, rollup)` | `Total` = sum, `Average` = mean of numeric values; skips `None`. |
 | `extract_variables` | `(formula)` | Parses `{Name}` references from a formula string. Returns sorted list of names. |
 | `evaluate_formula` | `(formula, variables)` | Safe AST-based evaluator. `{Name}` vars replaced with floats, div-by-zero → `None`. Max 25 vars. |
-| `prorate_for_period` | `(value, covered_days, period_days)` | Prorates a value by coverage ratio, clamped 0–1. |
+| `prorate_for_period` | `(value, elapsed, total)` | Returns `value * elapsed / total`. Clamps `elapsed` to `total` but does **not** clamp the ratio to 0–1 and does not reject negative input, so it can return a negative value. Never called from the app. |
 | `count_consecutive_off_track` | `(statuses)` | Returns trailing count of consecutive `Off Track` entries from the end of the list. |
 | `scorecard_summary` | `(statuses)` | Returns `{total, on_track, off_track}` counts for a list of entry statuses. |
 | `default_agenda_sections` | `()` | The six standard Level 10 agenda sections in order. |
 | `build_scorecard_report` | `(metric_blocks, trend_threshold=3)` | From a list of metric dicts (with `statuses`), computes per-metric trend, overall summary, and metrics exceeding the consecutive off-track threshold. |
 | `quarter_bounds` | `(anchor)` | Returns `(period_start, period_end)` for the quarter containing `anchor`. |
-| `rollup_rock_summary` | `(rock_rows, )` | `{total, active, complete, average_progress}` given rows with `status`/`progress`. |
+| `rollup_rock_summary` | `(rock_rows)` | `{total, active, complete, average_progress}` given rows with `status`/`progress`. |
 | `rollup_todo_summary` | `(todo_rows, as_of=None)` | `{total, open, complete, overdue}` given rows with `status`/`due_date`; open todos due before `as_of` (default: today) count overdue. |
 | `build_quarterly_review` | `(rock_rows, todo_rows, measurable_rows, as_of=None)` | Combines the three rollups into `{rocks, todos, measurables}` for a review snapshot. |
 
@@ -457,8 +457,16 @@ See `docs/roadmap.md` for status. The target model adds:
 ## 7. Known deviations / decisions
 
 - The Phase 1 spec named `operator` with `>=`/`<=`/`==` as the orientation rule; Ninety's range
-  rules (`Inside min/max`, `Outside min/max`) are deferred to a schema revision in Phase 3.
+  rules (`Inside min/max`, `Outside min/max`) were added in Phase 3 and are implemented.
 - `frequency` already lists Quarterly/Annual (Ninety ships 4 scorecards per team) even though entry
   UI defaults to weekly.
-- UI/Single-page Scorecard board, bulk paste, trends view, and PDF export are out of scope for the
-  backend-first milestones; they are Phase 3+ frontend/Web Page work.
+- **There is no user interface.** `public/js` and `public/css` are empty, there are no client
+  scripts, and only three `@frappe.whitelist()` methods exist. `create_issue_from_metric` has no
+  UI trigger. Everything is reachable only through the default Frappe form or the console. The
+  Scorecard grid, column toggles, "View by" switch, trends view, bulk paste and PDF export remain
+  unbuilt — they are not tracked as a roadmap phase.
+- `compute_health`, `aggregate_values`, `prorate_for_period` and `EOS Metric.rollup` are unit-tested
+  but have no production call site; the tests can suggest wiring that does not exist.
+- `To Do.todo_name` is not enforced unique. `VTO` uses hash naming (there is no `format` autoname),
+  so VTO documents appear as hashes in list views.
+- Known bugs and the full unwired list are in `docs/roadmap.md` § "Known gaps in Phases 1–5".

@@ -24,6 +24,25 @@ class TestToDo(IntegrationTestCase):
 		todo.save()
 		self.assertEqual(todo.status, "Complete")
 
+	def test_duplicate_name_rejected(self):
+		frappe.get_doc(
+			{
+				"doctype": "To Do",
+				"todo_name": "QR Todo Duplicate",
+				"status": "Not Started",
+				"owner_user": "Administrator",
+			}
+		).insert()
+		with self.assertRaises(frappe.DuplicateEntryError):
+			frappe.get_doc(
+				{
+					"doctype": "To Do",
+					"todo_name": "QR Todo Duplicate",
+					"status": "Not Started",
+					"owner_user": "Administrator",
+				}
+			).insert()
+
 	def test_backward_transition_rejected(self):
 		todo = frappe.get_doc(
 			{

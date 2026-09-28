@@ -75,6 +75,34 @@ class TestScorecardReport(IntegrationTestCase):
 		self.assertEqual(rows["SR Bad"].status, "Off Track")
 		self.assertEqual(rows["SR Bad"].trend, 3)
 
+	def test_snapshot_ignores_later_entries(self):
+		team = self._seed_metrics()
+		bad = frappe.get_doc("EOS Metric", "SR Bad")
+		bad.append("entries", {"week_start_date": "2026-09-14", "actual_value": 95})
+		bad.save()
+		reloaded = frappe.get_doc("EOS Metric", "SR Bad")
+		late = frappe.get_doc(
+			{
+				"doctype": "Scorecard Report",
+				"team": team.name,
+				"week_start_date": "2026-09-07",
+			}
+		).insert()
+		early = frappe.get_doc(
+			{
+				"doctype": "Scorecard Report",
+				"team": team.name,
+				"week_start_date": "2026-08-17",
+			}
+		).insert()
+		late_row = {row.metric: row for row in late.report_metrics}["SR Bad"]
+		early_row = {row.metric: row for row in early.report_metrics}["SR Bad"]
+		self.assertEqual(reloaded.entries[-1].actual_value, 95)
+		self.assertEqual(late_row.actual_value, 60)
+		self.assertEqual(late_row.trend, 3)
+		self.assertEqual(early_row.actual_value, 80)
+		self.assertEqual(early_row.trend, 1)
+
 	def test_unique_team_week(self):
 		team = self._seed_metrics()
 		frappe.get_doc(

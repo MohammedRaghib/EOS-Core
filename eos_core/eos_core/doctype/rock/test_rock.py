@@ -121,12 +121,14 @@ class TestRock(IntegrationTestCase):
 			}
 		).insert()
 
-		summary = rock.get_rock_summary()
+		summary = rock.get_rock_summary(as_of="2026-09-28")
+		later = rock.get_rock_summary(as_of="2026-11-01")
 
 		self.assertEqual(summary["progress"], 50.0)
 		self.assertEqual(summary["milestones"], {"total": 2, "complete": 1})
 		self.assertEqual(summary["todos"], {"total": 2, "open": 1, "complete": 1, "overdue": 0})
 		self.assertEqual(summary["linked_todos"], 2)
+		self.assertEqual(later["todos"]["overdue"], 1)
 
 	def tearDown(self):
 		frappe.db.delete("To Do")

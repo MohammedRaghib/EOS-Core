@@ -96,12 +96,22 @@ apps/eos_core/
 | To-Dos | `To Do` / `To Do Item` | DONE — forward-only status, `cascade_todo_transitions` |
 | Quarterly review | `Quarterly Review` | DONE — team × period snapshot of Rocks/To-Dos/Measurables |
 
-Tests: `bench --site resolv.localhost run-tests --app eos_core` runs the 19 pure-engine unit tests.
-The 37 integration tests run per module, e.g.
-`bench --site resolv.localhost run-tests --module eos_core.eos_core.doctype.rock.test_rock`
-(set `allow_tests true` first — already enabled on `resolv.localhost`). Full suite = 56 tests.
+Tests: `bench --site resolv.localhost run-tests --app eos_core` runs the whole suite — 43
+integration + 26 pure-engine unit = **69 tests** (needs `allow_tests true`, already enabled on
+`resolv.localhost`). To run a single module, add
+`--module eos_core.eos_core.doctype.rock.test_rock`.
 
 Permissions are System Manager only for now (role model is Phase 6 in the roadmap).
+
+**There is no UI.** `public/js` and `public/css` are empty, there are no client scripts, and only
+three `@frappe.whitelist()` methods. Everything is reachable only via the default Frappe form or
+the console. Treat "DONE" in the table above as "the code exists and is unit-tested", not "the
+feature is reachable by a user".
+
+**Read `docs/roadmap.md` § "Known gaps in Phases 1–5" before starting any phase.** It lists the
+unwired code (`compute_health`, `aggregate_values`/`rollup`, `prorate_for_period`,
+`Measurable Group.order`) and the open logic bugs, so you do not mistake tested-but-unwired code
+for working functionality.
 
 ## Working conventions
 
@@ -116,7 +126,22 @@ Permissions are System Manager only for now (role model is Phase 6 in the roadma
 
 ## What to build next
 
-See `docs/roadmap.md`. Phases 1–5 are complete. Phase 6 (Permissions & Roles — map Ninety
-Owner/Admin/Coach/Manager/Team Member/Observer onto Frappe roles and DocPerm blocks) is the next
-major phase. Re-read the roadmap before starting so naming and data flow stay consistent with the
-architecture document.
+See `docs/roadmap.md`. The **code** for Phases 1–5 exists and is tested, but the verified gap list
+in that roadmap is the real work queue — in order:
+
+1. **Block 1 — open logic bugs** (Rock double-count in `quarterly_review`, report ignoring its own
+   `week_start_date`, `validate_formula` rejecting valid formulas, `apply_formula` nulling
+   user-entered values, `compute_achievement` division by zero).
+2. **Block 2 — Ninety parity for the unwired features.** Ninety's status indicator is a 3-most-
+   recently-*completed*-periods window (Green all on track / Yellow ≥1 miss / Red all 3 miss /
+   "No Recent Data"), which the existing `compute_health` tolerance calc does **not** implement.
+   `prorate_for_period` + `aggregate_values` + `rollup` are one feature (Ninety's "View by"
+   Week/Month/Quarter/Year aggregation, prorated at the weekly level). `Measurable Group.order`
+   must feed the L10 agenda order.
+3. **Block 3 — Phase 6 Permissions & Roles** (Owner/Admin/Coach/Manager/Team Member/Observer →
+   Frappe roles and DocPerm blocks). Ninety's matrix is published in its help centre.
+4. **Block 4 — UI**, currently absent entirely.
+
+Re-read the roadmap before starting so naming and data flow stay consistent with the architecture
+document, and keep every behavioural decision grounded in Ninety's documented behaviour rather than
+assumption.

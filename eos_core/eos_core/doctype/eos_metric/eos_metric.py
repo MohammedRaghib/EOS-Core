@@ -6,6 +6,7 @@ from eos_core.scorecard_engine import (
 	compute_status,
 	evaluate_formula,
 	extract_variables,
+	validate_formula_syntax,
 )
 
 RANGE_OPERATORS = ("Inside min/max", "Outside min/max")
@@ -44,6 +45,10 @@ class EOSMetric(Document):
 		)
 
 	def validate_range_target(self):
+		if self.min_value == 0:
+			self.min_value = None
+		if self.max_value == 0:
+			self.max_value = None
 		if self.operator in RANGE_OPERATORS:
 			if self.min_value is None and self.max_value is None:
 				frappe.throw("Range operators require at least one of Min Value or Max Value.")
@@ -118,7 +123,7 @@ class EOSMetric(Document):
 				frappe.throw(
 					f"Formula references {frappe.bold(variable)} with a different frequency."
 				)
-		if evaluate_formula(self.formula, {variable: 1.0 for variable in variables}) is None:
+		if not validate_formula_syntax(self.formula):
 			frappe.throw("Formula is invalid or could not be evaluated.")
 
 	def apply_formula(self):
@@ -146,6 +151,6 @@ class EOSMetric(Document):
 					inputs = None
 					break
 				inputs[variable] = value
-			entry.actual_value = (
-				evaluate_formula(self.formula, inputs) if inputs is not None else None
-			)
+			if inputs is None:
+				continue
+			entry.actual_value = evaluate_formula(self.formula, inputs)

@@ -72,12 +72,7 @@ class ScorecardReport(Document):
 		if not metric:
 			return None
 		group_name = frappe.db.get_value("Measurable Group", metric.group, "group_name") or ""
-		entries = frappe.get_all(
-			"Scorecard Entry",
-			filters={"metric": metric_name},
-			fields=["week_start_date", "actual_value", "status"],
-			order_by="week_start_date asc",
-		)
+		entries = self._entries_up_to(metric_name)
 		latest = entries[-1] if entries else None
 		return {
 			"name": metric_name,
@@ -90,6 +85,17 @@ class ScorecardReport(Document):
 			"status": latest.status if latest else None,
 			"statuses": [entry.status for entry in entries],
 		}
+
+	def _entries_up_to(self, metric_name):
+		filters = {"metric": metric_name}
+		if self.week_start_date:
+			filters["week_start_date"] = ["<=", self.week_start_date]
+		return frappe.get_all(
+			"Scorecard Entry",
+			filters=filters,
+			fields=["week_start_date", "actual_value", "status"],
+			order_by="week_start_date asc",
+		)
 
 	@frappe.whitelist()
 	def send_report(self):

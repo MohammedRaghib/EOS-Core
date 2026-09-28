@@ -171,6 +171,89 @@ class TestEOSMetric(IntegrationTestCase):
 		self.assertEqual(smart.entries[0].status, "On Track")
 		self.assertEqual(smart.entries[1].actual_value, 999)
 
+	def test_non_range_metric_resaves_after_reload(self):
+		metric = frappe.get_doc(
+			{
+				"doctype": "EOS Metric",
+				"metric_name": "GM Resave",
+				"owner": "Administrator",
+				"target_value": 100,
+				"operator": ">=",
+				"frequency": "Weekly",
+			}
+		).insert()
+		metric.append("entries", {"week_start_date": "2026-09-07", "actual_value": 90})
+		metric.save()
+		metric.reload()
+		metric.description = "resaved"
+		metric.save()
+		self.assertEqual(metric.entries[0].status, "Off Track")
+		self.assertEqual(metric.min_value, None)
+
+	def test_formula_with_division_is_accepted(self):
+		base = frappe.get_doc(
+			{
+				"doctype": "EOS Metric",
+				"metric_name": "GM Div Base",
+				"owner": "Administrator",
+				"target_value": 50,
+				"operator": ">=",
+				"frequency": "Weekly",
+			}
+		).insert()
+		base.append("entries", {"week_start_date": "2026-09-07", "actual_value": 10})
+		base.save()
+		smart = frappe.get_doc(
+			{
+				"doctype": "EOS Metric",
+				"metric_name": "GM Div Smart",
+				"owner": "Administrator",
+				"is_smart": 1,
+				"formula": "{GM Div Base} / (1 - 0.5)",
+				"target_value": 100,
+				"operator": ">=",
+				"frequency": "Weekly",
+			}
+		)
+		smart.append("entries", {"week_start_date": "2026-09-07"})
+		smart.insert()
+		self.assertEqual(smart.entries[0].actual_value, 20.0)
+
+	def test_formula_keeps_value_when_source_missing(self):
+		base = frappe.get_doc(
+			{
+				"doctype": "EOS Metric",
+				"metric_name": "GM Partial Base",
+				"owner": "Administrator",
+				"target_value": 50,
+				"operator": ">=",
+				"frequency": "Weekly",
+			}
+		).insert()
+		base.append("entries", {"week_start_date": "2026-09-07", "actual_value": 20})
+		base.save()
+		smart = frappe.get_doc(
+			{
+				"doctype": "EOS Metric",
+				"metric_name": "GM Partial Smart",
+				"owner": "Administrator",
+				"is_smart": 1,
+				"formula": "{GM Partial Base} * 2",
+				"target_value": 100,
+				"operator": ">=",
+				"frequency": "Weekly",
+			}
+		)
+		smart.append("entries", {"week_start_date": "2026-09-07"})
+		smart.append("entries", {"week_start_date": "2026-09-14"})
+		smart.insert()
+		self.assertEqual(smart.entries[0].actual_value, 40.0)
+		smart.reload()
+		smart.entries[1].actual_value = 7
+		smart.save()
+		self.assertEqual(smart.entries[1].actual_value, 7)
+		self.assertEqual(smart.entries[0].actual_value, 40.0)
+
 	def test_formula_self_reference_rejected(self):
 		with self.assertRaises(frappe.ValidationError):
 			frappe.get_doc(
