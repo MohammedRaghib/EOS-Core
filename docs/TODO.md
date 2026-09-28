@@ -39,7 +39,7 @@ Follow them exactly.
 ```bash
 cd /workspace/development/frappe-bench
 bench --site resolv.localhost migrate                      # after ANY *.json edit, incl. permissions
-bench --site resolv.localhost run-tests --app eos_core     # full suite, 131 tests
+bench --site resolv.localhost run-tests --app eos_core     # full suite, 133 tests
 bench --site resolv.localhost run-tests --module eos_core.eos_core.doctype.issue.test_issue   # one module
 ./env/bin/python -c "import sys; sys.path.insert(0,'apps/eos_core'); from eos_core.scorecard_engine import compute_status"  # engine only, no DB
 ```
@@ -51,23 +51,15 @@ bench --site resolv.localhost run-tests --module eos_core.eos_core.doctype.issue
 
 # Queue
 
-## Next up: `BUG-3` → then Block A in order
+## Next up: `BUG-4` → then Block A in order
 
-Block A is five small, verified bugs. **Three remain open**; `BUG-1` (the only one that put wrong
+Block A is five small, verified bugs. **Two remain open**; `BUG-1` (the only one that put wrong
 data in front of a user) is closed. Blocks B (permissions) and C (UI) are where the actual product
 is; nothing built so far is usable by anyone but a developer with a console.
 
 ---
 
-## Block A — Correctness (4 open, 2 done)
-
-### BUG-3 — S3 · V/TO with one section populated leaves four empty
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
-**Where** `eos_core/eos_core/doctype/vto/vto.py:69`
-**Bug** guarded by `if not self.core_focus and not self.marketing_strategy`. A V/TO created with
-only *one* of those two sections populated skips `populate_sections`, so the other four sections are
-never created. Should be `or`.
-**Done when** a V/TO created with exactly one of the two sections populated still has all five.
+## Block A — Correctness (3 open, 3 done)
 
 ### BUG-4 — S3 · Dangling `parent_team` raises `TypeError`
 **Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
@@ -354,8 +346,20 @@ Moved here when finished. Never deleted, never renumbered.
 |---|---|---|---|
 | `BUG-1` | Issue streak ignored the anchor week | 2026-09-28 | `08757c4` |
 | `BUG-2` | `send_report` opened the template without an encoding | 2026-09-28 | `ce168c8` |
+| `BUG-3` | V/TO with one section populated left four empty | 2026-09-28 | *(this commit)* |
 | `DOC-1` | `architecture.md` wrongly said `Measurable Group` has no `title_field` | 2026-09-28 | `f6f3e73` |
 | `DOC-2` | `architecture.md` §4 engine table omitted `validate_formula_syntax` | 2026-09-28 | `f6f3e73` |
+
+**`BUG-3`** — **deviated from the item's suggested `or`**, deliberately. Switching `and` to `or`
+would make the guard pass, but `populate_sections` appends *all five* sections unconditionally, so a
+caller who supplied `core_focus` would get a second, empty `core_focus` row — trading four missing
+sections for a duplicate one. The "Done when" asks that the V/TO "still has all five", which a
+duplicate row does not satisfy. `before_insert` now calls `populate_sections` unconditionally and
+`populate_sections` appends only the sections that are currently empty, so a supplied section is
+preserved and the rest are filled. Two tests cover it, one per direction (only `core_focus`
+supplied, only `marketing_strategy` supplied); both failed on the old guard with `0 != 1`. Note
+`vto.py` is still 4-space indented — that reindent stays with `DEBT-9` so this commit is not mixed
+with it. Suite: 133/133.
 
 **`BUG-2`** — `open(template_path, encoding="utf-8")`. The test wraps `builtins.open` with a
 recording pass-through (so the real file is still read and rendered) and asserts the single
@@ -382,4 +386,4 @@ neither and shows bare hashes.
 reason for existing (it does not evaluate, which is why `{A}/(1-{B})` is not rejected for dividing by
 zero). §4 now lists 29 of 29 public functions and agrees with `AGENTS.md`.
 
-Next item to land: `BUG-3`.
+Next item to land: `BUG-4`.

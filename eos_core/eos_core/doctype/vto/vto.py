@@ -66,9 +66,9 @@ class VTO(Document):
             )
 
     def before_insert(self):
-        if not self.core_focus and not self.marketing_strategy:
-            self.populate_sections()
+        self.populate_sections()
 
     def populate_sections(self):
         for section_def in SECTION_DEFS:
-            self.append(section_def["fieldname"], section_def["fields"])
+            if not self.get(section_def["fieldname"]):
+                self.append(section_def["fieldname"], section_def["fields"])

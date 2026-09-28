@@ -31,6 +31,42 @@ class TestVTO(IntegrationTestCase):
 		self.assertEqual(vto.core_focus[0].purpose, "")
 		self.assertEqual(vto.one_year_plan[0].target_revenue, 0.0)
 
+	def test_sections_filled_when_only_one_supplied(self):
+		org = frappe.get_doc(
+			{"doctype": "Organization", "organization_name": "QR VTO Partial Org"}
+		).insert()
+		vto = frappe.get_doc(
+			{
+				"doctype": "VTO",
+				"organization": org.name,
+				"core_focus": [{"purpose": "Serve accountants"}],
+			}
+		).insert()
+		self.assertEqual(len(vto.core_focus), 1)
+		self.assertEqual(vto.core_focus[0].purpose, "Serve accountants")
+		self.assertEqual(len(vto.marketing_strategy), 1)
+		self.assertEqual(len(vto.three_year_picture), 1)
+		self.assertEqual(len(vto.one_year_plan), 1)
+		self.assertEqual(len(vto.quarterly_rocks), 1)
+
+	def test_sections_filled_when_only_marketing_supplied(self):
+		org = frappe.get_doc(
+			{"doctype": "Organization", "organization_name": "QR VTO Marketing Org"}
+		).insert()
+		vto = frappe.get_doc(
+			{
+				"doctype": "VTO",
+				"organization": org.name,
+				"marketing_strategy": [{"threes_uniques": "Be specific"}],
+			}
+		).insert()
+		self.assertEqual(len(vto.marketing_strategy), 1)
+		self.assertEqual(vto.marketing_strategy[0].threes_uniques, "Be specific")
+		self.assertEqual(len(vto.core_focus), 1)
+		self.assertEqual(len(vto.three_year_picture), 1)
+		self.assertEqual(len(vto.one_year_plan), 1)
+		self.assertEqual(len(vto.quarterly_rocks), 1)
+
 	def tearDown(self):
 		frappe.db.delete("VTO Quarterly Rocks")
 		frappe.db.delete("VTO 1 Year Plan")

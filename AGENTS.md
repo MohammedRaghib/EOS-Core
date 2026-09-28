@@ -148,7 +148,7 @@ apps/eos_core/
 | Quarterly review | `Quarterly Review` | DONE — team × period snapshot of Rocks/To-Dos/Measurables |
 
 Tests: `bench --site resolv.localhost run-tests --app eos_core` runs the whole suite in one go —
-**68 integration + 63 pure-engine unit = 131 tests**, all green (needs `allow_tests true`, already
+**70 integration + 63 pure-engine unit = 133 tests**, all green (needs `allow_tests true`, already
 enabled on `resolv.localhost`). The split by file:
 
 | Integration test | Count |
@@ -162,8 +162,8 @@ enabled on `resolv.localhost`). The split by file:
 | `doctype/scorecard_report/test_scorecard_report.py` | 13 |
 | `doctype/team/test_team.py` | 3 |
 | `doctype/to_do/test_to_do.py` | 5 |
-| `doctype/vto/test_vto.py` | 2 |
-| **Integration total** | **68** |
+| `doctype/vto/test_vto.py` | 4 |
+| **Integration total** | **70** |
 | `eos_core/test_scorecard_engine.py` (unit, frappe-free) | **63** |
 
 Re-derive these with `grep -rc 'def test_'` rather than trusting the table — the documented totals

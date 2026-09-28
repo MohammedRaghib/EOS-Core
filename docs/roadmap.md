@@ -114,8 +114,8 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
       team's Rocks (Company-scoped + own-team) with milestone progress, To-Dos due within the
       period (overdue judged against `period_end`), and team Measurables as **On Track / Off Track
       counts** (not green/red) via `build_quarterly_review`
-- [x] Tests: `test_rock.py` (5), `test_to_do.py` (5), `test_vto.py` (2),
-      `test_quarterly_review.py` (5) — all green; full suite 131 tests (63 unit + 68 integration)
+- [x] Tests: `test_rock.py` (5), `test_to_do.py` (5),
+      `test_quarterly_review.py` (5), `test_vto.py` (4) — all green; full suite 133 tests (63 unit + 70 integration)
 
 **Definition of done (met):** all 24 Eos Core DocTypes registered (migrate clean, zero orphans);
 create an Organization → auto-populated `V/TO`, add Rocks with milestones → mark complete cascades
@@ -163,12 +163,12 @@ Fixed in the Block 1 correctness pass:
 | `scorecard_engine.py` `evaluate_formula` | The 25-variable guard counted the size of the supplied dict rather than the number of variables in the formula. | fixed |
 | `issue.py` `count_consecutive_from_db` | Signature was `(metric_name)` only — it fetched the metric's **entire** history, so an Issue raised about an old week was stamped with a streak running through the **most recent** week. | fixed — takes `as_of` and caps the query with `week_start_date <= as_of` |
 | `scorecard_report.py` `send_report` | `open(template_path)` with no `encoding=`, but the template contains em-dashes (`E2 80 94`). Works on a UTF-8 locale, raises `UnicodeDecodeError` where the platform default is not UTF-8. | fixed — `encoding="utf-8"` |
+| `vto.py` `populate_sections` | Appended all five sections unconditionally, so a V/TO created with one of `core_focus` / `marketing_strategy` supplied skipped population entirely (the guard used `and`) — and would have **duplicated** the supplied section had the guard been `or`. | fixed — appends only the sections that are empty |
 
-Still open (2, all re-verified against the current code):
+Still open (1, all re-verified against the current code):
 
 | Location | Bug | Severity |
 |---|---|---|
-| `vto.py` `before_insert` | Guarded by `if not self.core_focus and not self.marketing_strategy`, so a V/TO created with only **one** of those two sections populated leaves the other four sections empty. | Low |
 | `team.py` `validate_parent_team` | The `while current:` walk-up unpacks `frappe.db.get_value("Team", current, [...])` with no `None` guard, so a dangling `parent_team` link raises `TypeError` instead of a clean validation error. | Low |
 
 **Smaller items**
@@ -192,7 +192,7 @@ Still open (2, all re-verified against the current code):
   `.editorconfig` / `pyproject.toml` (`indent-style = "tab"`) and would be rewritten wholesale by
   `ruff-format`; and **20** `.py` files are missing a final newline.
 - **The database holds test residue only** (~1 Organization, 1 Team, 1 Player, 1 Scorecard).
-  Nothing has been exercised end-to-end by a user — the 131 green tests are not evidence that any
+  Nothing has been exercised end-to-end by a user — the 133 green tests are not evidence that any
   workflow works in the browser.
 
 ## Block 2 — Ninety parity `[x] DONE`
