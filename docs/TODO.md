@@ -39,7 +39,7 @@ Follow them exactly.
 ```bash
 cd /workspace/development/frappe-bench
 bench --site resolv.localhost migrate                      # after ANY *.json edit, incl. permissions
-bench --site resolv.localhost run-tests --app eos_core     # full suite, 134 tests
+bench --site resolv.localhost run-tests --app eos_core     # full suite, 136 tests
 bench --site resolv.localhost run-tests --module eos_core.eos_core.doctype.issue.test_issue   # one module
 ./env/bin/python -c "import sys; sys.path.insert(0,'apps/eos_core'); from eos_core.scorecard_engine import compute_status"  # engine only, no DB
 ```
@@ -51,23 +51,15 @@ bench --site resolv.localhost run-tests --module eos_core.eos_core.doctype.issue
 
 # Queue
 
-## Next up: `BUG-5` → then Block A in order
+## Next up: `DATA-1` → then Block B
 
-Block A is five small, verified bugs. **One remains open**; `BUG-1` (the only one that put wrong
+Block A is five small, verified bugs. **One remains open** (`DATA-1`, which needs a design decision); `BUG-1` (the only one that put wrong
 data in front of a user) is closed. Blocks B (permissions) and C (UI) are where the actual product
 is; nothing built so far is usable by anyone but a developer with a console.
 
 ---
 
-## Block A — Correctness (2 open, 4 done)
-
-### BUG-5 — S3 · Dangling `EOS Metric.group` raises `DoesNotExistError`
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · *found 2026-09-28, not in any prior list*
-**Where** `eos_core/eos_core/doctype/eos_metric/eos_metric.py:83`
-**Bug** `validate_group` calls `frappe.get_doc("Measurable Group", self.group)` with no existence
-guard. Same bug class as `BUG-4`; raises a raw `DoesNotExistError` rather than a validation message
-naming the field.
-**Done when** the lookup is guarded and the thrown message names the offending group link.
+## Block A — Correctness (1 open, 5 done)
 
 ### DATA-1 — S1 · `Player.user` is not unique, so team ownership is ambiguous
 **Status** `TODO` · code+tests ☐ · reachable n/a · **Verified 2026-09-28**
@@ -339,8 +331,20 @@ Moved here when finished. Never deleted, never renumbered.
 | `BUG-2` | `send_report` opened the template without an encoding | 2026-09-28 | `ce168c8` |
 | `BUG-3` | V/TO with one section populated left four empty | 2026-09-28 | `138eaf9` |
 | `BUG-4` | Dangling `parent_team` raised `TypeError` | 2026-09-28 | `8b5ea3e` |
+| `BUG-5` | Dangling `EOS Metric.group` raised `DoesNotExistError` | 2026-09-28 | `a5f5321` |
 | `DOC-1` | `architecture.md` wrongly said `Measurable Group` has no `title_field` | 2026-09-28 | `f6f3e73` |
 | `DOC-2` | `architecture.md` §4 engine table omitted `validate_formula_syntax` | 2026-09-28 | `f6f3e73` |
+
+**`BUG-5`** — **reachability corrected on re-verification.** The item said a deleted group raises a
+raw `DoesNotExistError`, but that is only true if Frappe's own link validation is bypassed:
+`_validate_links()` runs *before* `validate()` on both insert (`document.py:477`) and save
+(`document.py:591`), so on the normal path a deleted group is already rejected with
+`frappe.LinkValidationError` ("Could not find Measurable Group: <hash>"). Confirmed with a test.
+With `flags.ignore_links = True` the real bug appears — `DoesNotExistError('Measurable Group
+voafakpmnt not found')` — and that is now a clean `frappe.ValidationError` naming the field. Both
+paths have a test, so a future change to Frappe's link ordering is noticed rather than silently
+absorbing this. `validate_group` had **no test at all** before this, so this adds two, plus a
+guard on the unguarded `Scorecard` lookup in the same method. Suite: 136/136.
 
 **`BUG-4`** — the walk-up now uses `as_dict=True` and throws a `frappe.ValidationError` naming the
 missing team. Note the reachable path is a dangling **grandparent**, not a dangling `parent_team`:
@@ -386,4 +390,4 @@ neither and shows bare hashes.
 reason for existing (it does not evaluate, which is why `{A}/(1-{B})` is not rejected for dividing by
 zero). §4 now lists 29 of 29 public functions and agrees with `AGENTS.md`.
 
-Next item to land: `BUG-5`.
+Next item to land: `DATA-1`.

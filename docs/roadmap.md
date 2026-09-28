@@ -45,7 +45,7 @@ Organization → Leadership team → Department → Team → Individual.
       - `EOSMetric.validate_owner_team`: when a metric is team-scoped its `owner` user must have a
         Player in that team (org-wide metrics with no `team` skip the rule)
 - [x] `team` Link added to `EOS Metric` (null = organization-wide/global)
-- [x] Tests: `test_team.py` (3), `test_eos_metric.py` (10); engine unit tests (63) — all green
+- [x] Tests: `test_team.py` (4), `test_eos_metric.py` (12); engine unit tests (63) — all green
 
 **Exit criteria (met):** org hierarchy usable (Organization → nested Teams), Players attached to
 teams and Users, metric creation scoped to a team, per-team list filters possible.
@@ -115,7 +115,7 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
       period (overdue judged against `period_end`), and team Measurables as **On Track / Off Track
       counts** (not green/red) via `build_quarterly_review`
 - [x] Tests: `test_rock.py` (5), `test_to_do.py` (5),
-      `test_quarterly_review.py` (5), `test_vto.py` (4) — all green; full suite 134 tests (63 unit + 71 integration)
+      `test_quarterly_review.py` (5), `test_vto.py` (4) — all green; full suite 136 tests (63 unit + 73 integration)
 
 **Definition of done (met):** all 24 Eos Core DocTypes registered (migrate clean, zero orphans);
 create an Organization → auto-populated `V/TO`, add Rocks with milestones → mark complete cascades
@@ -166,8 +166,8 @@ Fixed in the Block 1 correctness pass:
 | `vto.py` `populate_sections` | Appended all five sections unconditionally, so a V/TO created with one of `core_focus` / `marketing_strategy` supplied skipped population entirely (the guard used `and`) — and would have **duplicated** the supplied section had the guard been `or`. | fixed — appends only the sections that are empty |
 | `team.py` `validate_parent_team` | The `while current:` walk-up unpacked `frappe.db.get_value("Team", current, [...])` with no `None` guard, so a dangling **grandparent** (reachable only after a parent is deleted under a saved child, since Frappe validates links before `validate()`) raised `TypeError: cannot unpack non-iterable NoneType`. | fixed — `as_dict` + readable validation error naming the missing team |
 
-Still open: **none in this table.** Every bug found by this audit is now fixed;
-`BUG-5` post-dates the audit and is tracked in `TODO.md`.
+Still open: **none in this table.** Every bug found by this audit is now fixed; `BUG-5` post-dates
+the audit and is tracked in `TODO.md`.
 
 **Smaller items**
 
@@ -190,7 +190,7 @@ Still open: **none in this table.** Every bug found by this audit is now fixed;
   `.editorconfig` / `pyproject.toml` (`indent-style = "tab"`) and would be rewritten wholesale by
   `ruff-format`; and **20** `.py` files are missing a final newline.
 - **The database holds test residue only** (~1 Organization, 1 Team, 1 Player, 1 Scorecard).
-  Nothing has been exercised end-to-end by a user — the 134 green tests are not evidence that any
+  Nothing has been exercised end-to-end by a user — the 136 green tests are not evidence that any
   workflow works in the browser.
 
 ## Block 2 — Ninety parity `[x] DONE`

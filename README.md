@@ -30,7 +30,7 @@ Ninety's data model and workflows built as a native Frappe app.
   started.** Every DocType is currently System Manager only.
 - **Open work is tracked in [`docs/TODO.md`](docs/TODO.md)** — the single live queue, with stable
   item IDs. As of 2026-09-28 it holds 1 open logic bug, permissions at 0%, and no UI.
-- **Test suite: 134 tests** (63 pure-engine unit + 71 integration) — all green. Run them all with
+- **Test suite: 136 tests** (63 pure-engine unit + 73 integration) — all green. Run them all with
   `bench --site resolv.localhost run-tests --app eos_core`.
 - **No user interface yet.** `public/js` is empty and there are no client scripts, so everything is
   currently reachable only through the default Frappe forms or the console.
