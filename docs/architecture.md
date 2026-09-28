@@ -122,6 +122,29 @@ erDiagram
   its `owner` (a User) to have a `Player` record in that team. Metrics without `team` are
   organization-wide and skip the rule.
 
+## 3h. Roles (Phase 6 — roles exist, permissions not yet mapped)
+
+Ninety's six roles are created as Frappe `Role` records with `is_custom = 1` and `desk_access = 1`:
+
+| Role | Ninety's access (from Ninety's docs) |
+|---|---|
+| `Owner` | All teams and tools, company settings, billing, delete account. Can be held by more than one user. |
+| `Admin` | All **public** teams and tools, full editing; cannot elevate to Owner or change an Owner. |
+| `Coach` (Ninety: Implementer) | Same capabilities as an Admin, but **cannot be assigned as the owner** of a Measurable or Rock. Free of charge. |
+| `Manager` | Full editing within assigned teams; can invite users and create teams. |
+| `Team Member` (Ninety: Managee) | Views and edits within assigned teams; enters data; **cannot create** Measurables. |
+| `Observer` | Read-only within assigned teams; cannot own content. |
+
+- Created by `eos_core.roles.ensure_roles`, wired to `after_migrate` in `hooks.py`, so a **new site
+  gets them on migrate** rather than depending on one-off console data. Idempotent: a second call
+  creates nothing, and deleting a role then re-running `bench migrate` restores it.
+- The names are kept verbatim from Ninety even though `Owner`, `Admin` and `Manager` are generic and
+  could collide with a role another app introduces later. Parity wins; `tabRole` currently has no
+  such collision (`Administrator` and `* Manager` roles exist, but not bare `Manager`).
+- **Existing roles are untouched.** No DocType carries a DocPerm for these yet — that is `PERM-2`.
+  Every DocType is still `System Manager` only, so creating the roles changes no behaviour until
+  `PERM-2` lands. Treat "the role exists" as necessary setup, not as an implemented permission.
+
 ## 3c. Scorecards, Groups & Formulas (Phase 3 — implemented)
 
 ```mermaid

@@ -39,7 +39,7 @@ Follow them exactly.
 ```bash
 cd /workspace/development/frappe-bench
 bench --site resolv.localhost migrate                      # after ANY *.json edit, incl. permissions
-bench --site resolv.localhost run-tests --app eos_core     # full suite, 140 tests
+bench --site resolv.localhost run-tests --app eos_core     # full suite, 144 tests
 bench --site resolv.localhost run-tests --module eos_core.eos_core.doctype.issue.test_issue   # one module
 ./env/bin/python -c "import sys; sys.path.insert(0,'apps/eos_core'); from eos_core.scorecard_engine import compute_status"  # engine only, no DB
 ```
@@ -51,7 +51,7 @@ bench --site resolv.localhost run-tests --module eos_core.eos_core.doctype.issue
 
 # Queue
 
-## Next up: Block B (`PERM-1`) — Block A is closed
+## Next up: `PERM-2` (Block B) — Block A is closed, roles provisioned
 
 Block A is **closed**: all five bugs and `DATA-1` are done, and `DATA-2` was found while closing it.
 Blocks B (permissions) and C (UI) are where the actual product is; nothing built so far is usable by
@@ -78,17 +78,11 @@ sees "A Scorecard already exists for team X and Y timeframe" while creating a pe
 
 ---
 
-## Block B — Phase 6: Permissions & Roles (5 items, 0% done)
+## Block B — Phase 6: Permissions & Roles (5 items, 1 of 5 done)
 
-Every DocType is `System Manager` only — verified against `DocPerm` in the live DB. All 11 child
-tables have no permissions at all. No role below exists yet.
-
-### PERM-1 — S1 · Create the six Frappe roles
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
-**Scope** `Owner`, `Admin`, `Coach`, `Manager`, `Team Member`, `Observer` (Ninety's vocabulary).
-**Done when** the six roles exist on the site and are listed in `docs/architecture.md`.
-Note: creating a Role is a data change, not a `*.json` edit, so no `bench migrate` is needed for the
-role records themselves — but see `PERM-2`.
+Every DocType is still `System Manager` only — verified against `DocPerm` in the live DB. All 11 child
+tables have no permissions at all. The six roles now exist (`PERM-1` done), but **no DocType grants
+any of them access yet**, so nothing is gated by them until `PERM-2` lands.
 
 ### PERM-2 — S1 · DocPerm blocks per DocType from Ninety's matrix
 **Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
@@ -338,8 +332,25 @@ Moved here when finished. Never deleted, never renumbered.
 | `BUG-4` | Dangling `parent_team` raised `TypeError` | 2026-09-28 | `8b5ea3e` |
 | `BUG-5` | Dangling `EOS Metric.group` raised `DoesNotExistError` | 2026-09-28 | `a5f5321` |
 | `DATA-1` | `Player.user` uniqueness / team-ownership rule undecided | 2026-09-28 | `aedbbc1` |
+| `PERM-1` | The six Ninety Frappe roles did not exist | 2026-09-28 | *(this commit)* |
 | `DOC-1` | `architecture.md` wrongly said `Measurable Group` has no `title_field` | 2026-09-28 | `f6f3e73` |
 | `DOC-2` | `architecture.md` §4 engine table omitted `validate_formula_syntax` | 2026-09-28 | `f6f3e73` |
+
+**`PERM-1`** — the six roles are created by `eos_core.roles.ensure_roles`, wired to `after_migrate` in
+`hooks.py`, rather than as one-off console data. The item's note said no `bench migrate` was needed
+for the role records; that is true for the records themselves but would have left a **new site with
+no roles at all**, since `AGENTS.md` warns new sites need `install-app` + `migrate`. Verified
+reproducible rather than assumed: deleted `Observer`, re-ran `bench migrate`, and it came back.
+Idempotency has its own test (second call creates nothing), plus tests that all six exist, that each
+is `is_custom`/`desk_access`/enabled, and that the list still matches Ninety's vocabulary.
+
+`tabRole` has no collision with the six names, which was worth checking first because `Owner`,
+`Admin` and `Manager` are generic — `Administrator` and several `* Manager` roles already exist, but
+not bare `Manager`. The names are kept verbatim for parity anyway, and the collision risk is noted in
+`architecture.md` §3h.
+
+**No behaviour changed.** No DocType references these roles until `PERM-2`, so this is setup, not a
+permission. Suite: 144/144 (81 integration + 63 unit).
 
 **`DATA-1`** — **the item's premise was wrong; decided against it on Ninety's evidence.** The item
 asked for a uniqueness rule on `Player.user` because multi-team users made ownership "ambiguous".
@@ -417,4 +428,4 @@ neither and shows bare hashes.
 reason for existing (it does not evaluate, which is why `{A}/(1-{B})` is not rejected for dividing by
 zero). §4 now lists 29 of 29 public functions and agrees with `AGENTS.md`.
 
-Next item to land: Block B, `PERM-1`.
+Next item to land: `PERM-2`.

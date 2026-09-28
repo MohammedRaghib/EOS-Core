@@ -88,6 +88,11 @@ app_license = "mit"
 # before_install = "eos_core.install.before_install"
 # after_install = "eos_core.install.after_install"
 
+# Role Provisioning
+# -----------------
+
+after_migrate = "eos_core.roles.ensure_roles"
+
 # Uninstallation
 # ------------
 

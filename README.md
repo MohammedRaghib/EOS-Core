@@ -26,11 +26,13 @@ Ninety's data model and workflows built as a native Frappe app.
 - **Phase 5 — EOS Operating System: DONE.** `V/TO` (five auto-populated sections), `Rock`
   with milestone-gated completion that cascades linked To-Dos, forward-only `To Do`, and
   `Quarterly Review` team snapshots (Rocks/To-Dos/Measurables).
-- **Phase 6 (permissions) and Phase 7 (integrations, bulk UX, remaining Ninety parity) are not
-  started.** Every DocType is currently System Manager only.
+- **Phase 6 (permissions) is started but not usable.** The six Ninety roles (`Owner`, `Admin`, `Coach`,
+  `Manager`, `Team Member`, `Observer`) now exist, created by `after_migrate` so a new site gets them
+  too. No DocType grants them access yet — every DocType is still System Manager only.
+- **Phase 7 (integrations, bulk UX, remaining Ninety parity) is not started.**
 - **Open work is tracked in [`docs/TODO.md`](docs/TODO.md)** — the single live queue, with stable
   item IDs. As of 2026-09-28 Block A is closed (0 open logic bugs), permissions at 0%, and no UI.
-- **Test suite: 140 tests** (63 pure-engine unit + 77 integration) — all green. Run them all with
+- **Test suite: 144 tests** (63 pure-engine unit + 81 integration) — all green. Run them all with
   `bench --site resolv.localhost run-tests --app eos_core`.
 - **No user interface yet.** `public/js` is empty and there are no client scripts, so everything is
   currently reachable only through the default Frappe forms or the console.

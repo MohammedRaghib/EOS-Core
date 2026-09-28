@@ -148,7 +148,7 @@ apps/eos_core/
 | Quarterly review | `Quarterly Review` | DONE — team × period snapshot of Rocks/To-Dos/Measurables |
 
 Tests: `bench --site resolv.localhost run-tests --app eos_core` runs the whole suite in one go —
-**77 integration + 63 pure-engine unit = 140 tests**, all green (needs `allow_tests true`, already
+**81 integration + 63 pure-engine unit = 144 tests**, all green (needs `allow_tests true`, already
 enabled on `resolv.localhost`). The split by file:
 
 | Integration test | Count |
@@ -164,13 +164,16 @@ enabled on `resolv.localhost`). The split by file:
 | `doctype/team/test_team.py` | 4 |
 | `doctype/to_do/test_to_do.py` | 5 |
 | `doctype/vto/test_vto.py` | 4 |
-| **Integration total** | **77** |
+| **Integration total** | **81** |
+| `eos_core/test_roles.py` (roles provisioning) | 4 |
 | `eos_core/test_scorecard_engine.py` (unit, frappe-free) | **63** |
 
 Re-derive these with `grep -rc 'def test_'` rather than trusting the table — the documented totals
 have drifted more than once.
 
-Permissions are System Manager only for now (role model is Phase 6 in the roadmap).
+Permissions are System Manager only for now. The six Ninety roles exist (`PERM-1` done, created by
+`after_migrate` → `eos_core.roles.ensure_roles`), but no DocType references them yet, so they gate
+nothing until `PERM-2` lands. The full role model is `docs/architecture.md` §3h.
 
 **There is no UI.** `public/js` and `public/css` are empty, there are no client scripts, and only
 four `@frappe.whitelist()` methods (`rock.mark_complete`, `rock.get_rock_summary`,
