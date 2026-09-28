@@ -45,7 +45,7 @@ Organization → Leadership team → Department → Team → Individual.
       - `EOSMetric.validate_owner_team`: when a metric is team-scoped its `owner` user must have a
         Player in that team (org-wide metrics with no `team` skip the rule)
 - [x] `team` Link added to `EOS Metric` (null = organization-wide/global)
-- [x] Tests: `test_team.py` (4), `test_eos_metric.py` (12); engine unit tests (63) — all green
+- [x] Tests: `test_team.py` (4), `test_eos_metric.py` (12), `test_player.py` (4); engine unit tests (63) — all green
 
 **Exit criteria (met):** org hierarchy usable (Organization → nested Teams), Players attached to
 teams and Users, metric creation scoped to a team, per-team list filters possible.
@@ -115,7 +115,7 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
       period (overdue judged against `period_end`), and team Measurables as **On Track / Off Track
       counts** (not green/red) via `build_quarterly_review`
 - [x] Tests: `test_rock.py` (5), `test_to_do.py` (5),
-      `test_quarterly_review.py` (5), `test_vto.py` (4) — all green; full suite 136 tests (63 unit + 73 integration)
+      `test_quarterly_review.py` (5), `test_vto.py` (4) — all green; full suite 140 tests (63 unit + 77 integration)
 
 **Definition of done (met):** all 24 Eos Core DocTypes registered (migrate clean, zero orphans);
 create an Organization → auto-populated `V/TO`, add Rocks with milestones → mark complete cascades
@@ -171,9 +171,10 @@ the audit and is tracked in `TODO.md`.
 
 **Smaller items**
 
-- `Player`, `Organization` and `Scorecard Entry` controllers are empty (`pass`) with no tests.
-  `Player.user` has no uniqueness rule, so one user can sit in many teams — which makes
-  `EOSMetric.validate_owner_team` ambiguous about which team owns the user.
+- `Organization` and `Scorecard Entry` controllers are still empty (`pass`) with no tests.
+  `Player` is resolved (`DATA-1`): `Player.user` is deliberately **not** unique — Ninety states many
+  users sit in multiple teams — and ownership is the `(user, team)` pair, which is what
+  `validate_owner_team` already queries. One seat per person *per team* is now enforced.
 - `compute_achievement` is still covered by unit tests with no production call site.
 - `test_quarter_bounds_rolls_over_year` is **misnamed**: it asserts `quarter_bounds(2026-01-05)` →
   Jan 1 – Mar 31, i.e. Q1 of the *same* year, and never crosses a year boundary. The rollover
@@ -190,7 +191,7 @@ the audit and is tracked in `TODO.md`.
   `.editorconfig` / `pyproject.toml` (`indent-style = "tab"`) and would be rewritten wholesale by
   `ruff-format`; and **20** `.py` files are missing a final newline.
 - **The database holds test residue only** (~1 Organization, 1 Team, 1 Player, 1 Scorecard).
-  Nothing has been exercised end-to-end by a user — the 136 green tests are not evidence that any
+  Nothing has been exercised end-to-end by a user — the 140 green tests are not evidence that any
   workflow works in the browser.
 
 ## Block 2 — Ninety parity `[x] DONE`

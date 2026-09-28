@@ -39,7 +39,7 @@ Follow them exactly.
 ```bash
 cd /workspace/development/frappe-bench
 bench --site resolv.localhost migrate                      # after ANY *.json edit, incl. permissions
-bench --site resolv.localhost run-tests --app eos_core     # full suite, 136 tests
+bench --site resolv.localhost run-tests --app eos_core     # full suite, 140 tests
 bench --site resolv.localhost run-tests --module eos_core.eos_core.doctype.issue.test_issue   # one module
 ./env/bin/python -c "import sys; sys.path.insert(0,'apps/eos_core'); from eos_core.scorecard_engine import compute_status"  # engine only, no DB
 ```
@@ -51,27 +51,30 @@ bench --site resolv.localhost run-tests --module eos_core.eos_core.doctype.issue
 
 # Queue
 
-## Next up: `DATA-1` → then Block B
+## Next up: Block B (`PERM-1`) — Block A is closed
 
-Block A is five small, verified bugs. **One remains open** (`DATA-1`, which needs a design decision); `BUG-1` (the only one that put wrong
-data in front of a user) is closed. Blocks B (permissions) and C (UI) are where the actual product
-is; nothing built so far is usable by anyone but a developer with a console.
+Block A is **closed**: all five bugs and `DATA-1` are done, and `DATA-2` was found while closing it.
+Blocks B (permissions) and C (UI) are where the actual product is; nothing built so far is usable by
+anyone but a developer with a console.
 
 ---
 
-## Block A — Correctness (1 open, 5 done)
+## Block A — Correctness (0 open, 6 done)
 
-### DATA-1 — S1 · `Player.user` is not unique, so team ownership is ambiguous
-**Status** `TODO` · code+tests ☐ · reachable n/a · **Verified 2026-09-28**
-**Where** `eos_core/eos_core/doctype/player/player.json`; consumer at
-`eos_core/eos_core/doctype/eos_metric/eos_metric.py:34`
-**Problem** one user can hold seats in many teams, which makes
-`EOSMetric.validate_owner_team` ambiguous about which team owns the user. A previous list filed this
-as a "smaller item"; it is a correctness issue and it also blocks the current demo data — the only
-`Player` in the database (`Hussein`, user `Administrator`) has `team: null`, so *no* team-scoped
-metric can be created for team `BPO` until a Player is put in that team.
-**Done when** the uniqueness rule is decided and enforced in the schema, and the rule for which
-team owns a multi-team user is written down in `docs/architecture.md` §3b.
+### DATA-2 — S2 · Editing a `Scorecard.timeframe` orphans its name and breaks `ensure_scorecard`
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · *found 2026-09-28 while closing `DATA-1`, not in any prior list*
+**Where** `eos_core/eos_core/doctype/scorecard/scorecard.json` (autoname `format:{team}-{timeframe}`);
+consumer at `eos_core/eos_core/doctype/eos_metric/eos_metric.py:64`
+**Bug** `Scorecard` is autonamed `{team}-{timeframe}`, but Frappe does not re-run autoname on update,
+so editing `timeframe` leaves the old timeframe baked into `name`. `ensure_scorecard` looks the
+scorecard up by `{"team": ..., "timeframe": ...}`, so it no longer matches, concludes none exists,
+and tries to insert a duplicate — which then trips the app-level `validate_unique` check. The user
+sees "A Scorecard already exists for team X and Y timeframe" while creating a perfectly valid metric.
+**This was live in the demo data**: the only Scorecard in the database was named `BPO-Weekly` with
+`timeframe = Annual`, so *no* team-scoped `BPO` metric could be created at all. Corrected to
+`Weekly` to match the name.
+**Done when** either `timeframe` is made immutable after insert, or editing it renames the doc, and
+`ensure_scorecard` cannot be defeated by the resulting mismatch. Test per branch.
 
 ---
 
@@ -261,8 +264,10 @@ which normalises a Nov/Dec anchor to a Q4 start first. So no test covers it.
 
 ### DEBT-6 — S3 · Three empty controllers with no tests
 **Status** `TODO` · **Verified 2026-09-28**
-**Where** `player/player.py`, `organization/organization.py`, `scorecard_entry/scorecard_entry.py`
-**Problem** all three are `pass` with no test files. `Player` is the interesting one — see `DATA-1`.
+**Where** `organization/organization.py`, `scorecard_entry/scorecard_entry.py` (`player/player.py` was
+resolved by `DATA-1` on 2026-09-28 — it now validates one seat per person per team and has
+`test_player.py`, 4 tests)
+**Problem** the remaining two are `pass` with no test files.
 **Done when** each either has a test file proving it is intentionally passive, or has the validation
 it should have. Empty controllers are fine; untested *and* undocumented is not.
 
@@ -335,6 +340,27 @@ Moved here when finished. Never deleted, never renumbered.
 | `DOC-1` | `architecture.md` wrongly said `Measurable Group` has no `title_field` | 2026-09-28 | `f6f3e73` |
 | `DOC-2` | `architecture.md` §4 engine table omitted `validate_formula_syntax` | 2026-09-28 | `f6f3e73` |
 
+**`DATA-1`** — **the item's premise was wrong; decided against it on Ninety's evidence.** The item
+asked for a uniqueness rule on `Player.user` because multi-team users made ownership "ambiguous".
+Ninety's own docs say the opposite: *"Many Ninety users are members of multiple teams"*, users are
+invited via a **Team(s)** dropdown, and ownership is disambiguated by Seat. A unique index on `user`
+would therefore have **broken** parity. Decision: `Player.user` stays non-unique, and the rule is
+written up in `docs/architecture.md` §3b — ownership is always the pair `(user, team)`, which is what
+`validate_owner_team` already queries, and every other consumer resolves a `Player` by its own name
+via `Team.leader`, so no lookup was ever ambiguous.
+
+What *is* enforced is one seat per person **per team** (`Player.validate_unique_seat_in_team`), which
+closes the real hole: a team could otherwise hold two `Player` rows for one login. This gives the
+previously-empty controller a purpose and a first test file (`test_player.py`, 4 tests). Two
+deviations are recorded rather than hidden: a team-less `Player` is allowed but owns nothing
+team-scoped, and Ninety's genuine multi-Seat-per-user case is narrowed to one seat per team.
+
+The demo-data blocker was real and is fixed: the only `Player` (`Hussein`, user `Administrator`,
+leader of `BPO`) had `team: null`, so no team-scoped `BPO` metric could be created. Now `team = BPO`,
+and a live `bench` console run created and removed a `BPO` metric that linked to `BPO-Weekly` plus an
+Issue — the first end-to-end exercise of this data in the project's history. That run is what
+surfaced `DATA-2`. Suite: 140/140.
+
 **`BUG-5`** — **reachability corrected on re-verification.** The item said a deleted group raises a
 raw `DoesNotExistError`, but that is only true if Frappe's own link validation is bypassed:
 `_validate_links()` runs *before* `validate()` on both insert (`document.py:477`) and save
@@ -390,4 +416,4 @@ neither and shows bare hashes.
 reason for existing (it does not evaluate, which is why `{A}/(1-{B})` is not rejected for dividing by
 zero). §4 now lists 29 of 29 public functions and agrees with `AGENTS.md`.
 
-Next item to land: `DATA-1`.
+Next item to land: Block B, `PERM-1`.

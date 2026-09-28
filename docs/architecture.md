@@ -99,8 +99,23 @@ erDiagram
 
 - `Organization` is the top-level root (Ninety level 1). `Team` recurses via `parent_team` to model
   the five org levels (`Organization` → Leadership → Department → Team → Individual).
-- `Player` is a person in a seat; `Player.user` maps to a Frappe login (a user may hold multiple
-  seats).
+- `Player` is a person in a seat; `Player.user` maps to a Frappe login.
+- **Seats and team ownership** (`DATA-1` decision, 2026-09-28). `Player.user` is deliberately **not**
+  unique. Ninety states plainly that "Many Ninety users are members of multiple teams", invites users
+  with a **Team(s)** dropdown, and resolves ownership by Seat where a user holds several. Making
+  `user` unique would break that parity, so it stays unindexed by design.
+  - **Which team owns a multi-team user?** The metric's own `team` field disambiguates. Ownership is
+    always the pair `(user, team)` — never `user` alone — which is what
+    `EOSMetric.validate_owner_team` already queries, so no lookup in the app is ambiguous. Every
+    other consumer resolves a `Player` by its own `name` (via `Team.leader`), not by user.
+  - **What is enforced** is one seat per person *per team*: `Player.validate_unique_seat_in_team`
+    rejects a second `Player` for the same `(user, team)`. Without it, a team could hold two
+    `Player` rows for one login and the Seat that owns a measurable would be unresolvable.
+  - A `Player` with no `team` is permitted (an unassigned seat) but owns no team-scoped measurable,
+    so it cannot satisfy `validate_owner_team` for any team.
+  - Known deviation: Ninety lets one person sit in **multiple Seats**; this model allows one seat per
+    team instead. Recorded rather than silently narrowed — revisit if a Seat-level question needs to
+    be answerable.
 - **Team rules** (`Team.validate_parent_team`): rejects a parent chain that loops back to the team,
   and rejects a parent whose `Organization` differs from the child's.
 - **Metric scoping rule** (`EOSMetric.validate_owner_team`): an `EOS Metric` with `team` set requires
