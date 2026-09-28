@@ -246,29 +246,10 @@ first connector works end to end for one provider.
 
 ---
 
-## Block E — Doc corrections (3 items)
+## Block E — Doc corrections (1 item open)
 
-### DOC-1 — S3 · `architecture.md` wrongly says `Measurable Group` has no `title_field`
-**Status** `TODO` · **Verified 2026-09-28** · *found 2026-09-28, not in any prior list*
-**Where** `docs/architecture.md:536-539`
-**Error** the text reads "`VTO` and `Measurable Group` have no `autoname` at all, so both use Frappe
-hash naming and appear as hashes in list views; `Measurable Group` also has no `title_field`, so its
-`group_name` must be rendered explicitly."
-**Reality** the first half is right (both have `autoname: null` and are hash-named). The second half
-is **false**: `Measurable Group` has `title_field: "group_name"` and `search_fields: "group_name"`,
-confirmed in both `measurable_group.json` and the live `tabDocType` row. Its list view shows
-`group_name`, not a hash. Only `VTO` genuinely has no `title_field`.
-**Done when** the sentence states the two DocTypes separately, and the `Measurable Group` entry drops
-the claim about having to render `group_name` explicitly.
-
-### DOC-2 — S3 · `architecture.md` engine table omits `validate_formula_syntax`
-**Status** `TODO` · **Verified 2026-09-28** · *found 2026-09-28, not in any prior list*
-**Where** `docs/architecture.md` §4
-**Error** the table lists 28 of the engine's 29 public functions. `validate_formula_syntax` is
-missing, even though it exists, is used by `eos_metric.py:126`, and *is* listed in `AGENTS.md`. The
-two documents disagree about the same function.
-**Done when** §4 lists all 29, verified with
-`grep -oP '^(def )\K[a-z_]+' eos_core/scorecard_engine.py`.
+`DOC-1` and `DOC-2` are done — see *Done*. Note the ID gap is intentional: IDs are stable and are
+never renumbered, so `DOC-3` stays `DOC-3`.
 
 ### DOC-3 — S3 · `To Do` has no `title_field`
 **Status** `TODO` · **Verified 2026-09-28** · *found 2026-09-28, not in any prior list*
@@ -387,4 +368,20 @@ serialises it straight to JSON, so the type flips depending on data.
 
 ## Done
 
-Nothing yet. First item to land: `BUG-1`.
+Moved here when finished. Never deleted, never renumbered.
+
+| ID | Item | Closed | SHA |
+|---|---|---|---|
+| `DOC-1` | `architecture.md` wrongly said `Measurable Group` has no `title_field` | 2026-09-28 | *uncommitted* |
+| `DOC-2` | `architecture.md` §4 engine table omitted `validate_formula_syntax` | 2026-09-28 | *uncommitted* |
+
+**`DOC-1`** — re-verified against `measurable_group.json` and the live `tabDocType` row, then §7
+rewritten to state the two DocTypes separately: both are hash-named, but `Measurable Group` sets
+`title_field`/`search_fields` to `group_name` so it displays the group name, whereas `VTO` sets
+neither and shows bare hashes.
+
+**`DOC-2`** — added the missing `validate_formula_syntax` row to §4 with its real signature and its
+reason for existing (it does not evaluate, which is why `{A}/(1-{B})` is not rejected for dividing by
+zero). §4 now lists 29 of 29 public functions and agrees with `AGENTS.md`.
+
+Next item to land: `BUG-1`.

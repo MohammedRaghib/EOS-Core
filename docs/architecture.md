@@ -429,6 +429,7 @@ Pure, frappe-free functions so they are trivially testable. Behaviour (defaults,
 | `aggregate_values` | `(values, rollup)` | `Total` = sum, `Average` = mean of numeric values; skips `None`. |
 | `extract_variables` | `(formula)` | Parses `{Name}` references from a formula string. Returns sorted list of names. |
 | `evaluate_formula` | `(formula, variables)` | Safe AST-based evaluator. `{Name}` vars replaced with floats, div-by-zero → `None`. Max 25 vars. |
+| `validate_formula_syntax` | `(formula)` | Boolean syntax/safety check used by `EOSMetric.validate_formula`. Substitutes `0.0` for every `{Name}` variable, rejects leftover braces or any character outside the safe class, and requires `ast.parse` to succeed. It deliberately does **not** evaluate, so a valid formula such as `{A}/(1-{B})` is not rejected for dividing by zero. |
 | `prorate_for_period` | `(value, elapsed, total)` | Returns `value * elapsed / total` with the ratio clamped to 0–1. Negative `elapsed`, non-positive `total` and zero `elapsed` all return `None` rather than a negative or infinite value. |
 | `week_overlap_days` | `(week_start, period_start, period_end)` | Calendar days the 7-day week beginning `week_start` shares with the inclusive period, 0–7. Ninety splits straddling weeks by day: a week of Oct 27 – Nov 2 gives `5` against October and `2` against November. |
 | `week_overlap_ratio` | `(week_start, period_start, period_end)` | `week_overlap_days / 7`, so 0–1. Public expression of Ninety's split ratio; `aggregate_entries_for_period` uses the day form. |
@@ -535,9 +536,10 @@ Phase status is in `docs/roadmap.md`; the live work queue with stable IDs is in
   index**, so neither is race-proof. A duplicate report or review can be created by two concurrent
   requests. `VTO.organization` is likewise a real `unique: 1` index.
 - `VTO` and `Measurable Group` have **no `autoname` at all**, so both use Frappe hash naming and
-  appear as hashes in list views; `Measurable Group` also has no `title_field`, so its
-  `group_name` must be rendered explicitly. (An earlier roadmap claimed a `format` autoname for
-  `VTO`; there is none, in the JSON or in the live `tabDocType` row.)
+  their record `name` is a hash. They differ in what that means in a list view: `Measurable Group`
+  sets `title_field: "group_name"` and `search_fields: "group_name"`, so it displays the group
+  name, whereas `VTO` sets neither and its rows show as bare hashes. (An earlier roadmap claimed a
+  `format` autoname for `VTO`; there is none, in the JSON or in the live `tabDocType` row.)
 - The complete `autoname` map, verified against the JSON: `EOS Metric` `field:metric_name`,
   `Issue` `field:issue_name`, `Organization` `field:organization_name`, `Player` `field:player_name`,
   `Team` `field:team_name`, `Level 10 Meeting` `format:{team}-{meeting_date}`, `Scorecard`
