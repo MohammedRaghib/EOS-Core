@@ -1,7 +1,12 @@
 # Roadmap — Eos Core (Ninety.io clone)
 
-Acknowledge-phase-by-phase build plan. **Update this file as the project moves**; it is the source
-of truth for what exists and what is next.
+Acknowledge-phase-by-phase build plan. **This file is the phase *history*, not the work queue.**
+The live queue is [`TODO.md`](TODO.md) — every open item below has been given a stable ID there and
+is tracked there instead.
+
+> Why: this file, `AGENTS.md` and `architecture.md` each used to carry their own copy of the
+> outstanding work. Three lists, three formats, no sync — which is how the todos got duplicated and
+> went stale. One list, one owner.
 
 Legend: `[x]` done, `[ ]` planned, `[~]` in progress
 
@@ -117,6 +122,10 @@ create an Organization → auto-populated `V/TO`, add Rocks with milestones → 
 To-Dos; `Quarterly Review` snapshots the quarter with a single insert.
 
 ## Known gaps in Phases 1–5 (audited 2026-09-28, re-verified after Blocks 1 and 2)
+
+> **Audit record — not a queue.** Every item below was re-verified against the code and the live
+> database on 2026-09-28 and is tracked with a stable ID in [`TODO.md`](TODO.md). Fixes land here as
+> history; new work is queued in `TODO.md` only.
 
 "DONE" above means *the code exists and is tested*. It does **not** mean every roadmap claim is
 implemented or that the feature is reachable from the UI. The following were audited against the
@@ -252,8 +261,8 @@ Remaining Ninety features with no representation anywhere in the app:
 
 ## Contribution checklist (for every phase)
 
-1. Re-read `AGENTS.md` (rules, commands, gotchas) and this roadmap + `docs/architecture.md`, to keep
-   names and data flow consistent.
+1. Re-read `AGENTS.md` (rules, commands, gotchas) and `docs/architecture.md` (terminology + model),
+   and open `docs/TODO.md` to find the item you are picking up.
 2. Ground any behavioural question in Ninety's documented behaviour before designing. It is a clone;
    do not re-ask the five settled decisions listed in `AGENTS.md`.
 3. Scaffold DocTypes under `eos_core/eos_core/doctype/<name>/` (v16 layout).
@@ -263,5 +272,8 @@ Remaining Ninety features with no representation anywhere in the app:
 6. Add tests under each doctype dir (`test_<name>.py`) and run
    `bench --site resolv.localhost run-tests --app eos_core`. Keep tests date-independent: pass
    explicit dates or `as_of`, never `date.today()`.
-7. Update this roadmap (checkbox) and `docs/architecture.md` (terminology + model), and re-derive the
-   test counts rather than trusting the tables in `AGENTS.md`.
+7. When the item is finished, move it from `TODO` to *Done* **in `docs/TODO.md` with the commit
+   SHA**, ticking both its `code+tests` and `reachable` boxes where they apply. Update
+   `docs/architecture.md` only if the domain model or terminology actually changed. Re-derive test
+   counts with `grep -rc 'def test_'` rather than trusting the tables in this file or in `AGENTS.md`.
+8. Do not add new work items to this file. They go in `docs/TODO.md` with a new ID.

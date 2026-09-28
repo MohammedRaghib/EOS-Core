@@ -493,7 +493,8 @@ Keep this rule: **pure math in `scorecard_engine.py`, frappe glue in controllers
 
 ## 6. Planned evolution (full map)
 
-See `docs/roadmap.md` for status. The target model adds:
+Phase status is in `docs/roadmap.md`; the live work queue with stable IDs is in
+[`TODO.md`](TODO.md). The target model adds:
 
 - **Structure (Phase 2 — DONE)**: `Organization` → `Team` (nested) → `Player`; metrics scoped via
   `EOS Metric.team` with an owner-in-team rule.
@@ -546,4 +547,5 @@ See `docs/roadmap.md` for status. The target model adds:
 - The database holds **test residue only** — roughly one `Organization`, `Team`, `Player` and
   `Scorecard`. Nothing has been exercised end-to-end by a real user, so "the tests pass" is not
   evidence that a workflow works.
-- Known bugs and the full unwired list are in `docs/roadmap.md` § "Known gaps in Phases 1–5".
+- Known bugs and the full unwired list are queued in [`TODO.md`](TODO.md); the audit that produced
+  them is `docs/roadmap.md` § "Known gaps in Phases 1–5".

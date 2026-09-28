@@ -28,6 +28,8 @@ Ninety's data model and workflows built as a native Frappe app.
   `Quarterly Review` team snapshots (Rocks/To-Dos/Measurables).
 - **Phase 6 (permissions) and Phase 7 (integrations, bulk UX, remaining Ninety parity) are not
   started.** Every DocType is currently System Manager only.
+- **Open work is tracked in [`docs/TODO.md`](docs/TODO.md)** — the single live queue, with stable
+  item IDs. As of 2026-09-28 it holds 5 open logic bugs, permissions at 0%, and no UI.
 - **Test suite: 129 tests** (63 pure-engine unit + 66 integration) — all green. Run them all with
   `bench --site resolv.localhost run-tests --app eos_core`.
 - **No user interface yet.** `public/js` is empty and there are no client scripts, so everything is
@@ -35,7 +37,7 @@ Ninety's data model and workflows built as a native Frappe app.
 
 ## Who is this README for?
 
-- If you are a human: read `docs/architecture.md` then `docs/roadmap.md`.
+- If you are a human: read `docs/architecture.md` then `docs/TODO.md`.
 - If you are an AI agent about to work on this repo: read `AGENTS.md` first — it tells you the
   conventions, exact bench commands, and current state so you can pick up without poking around.
 
@@ -58,8 +60,9 @@ apps/eos_core/
 ├── AGENTS.md                      # Hand-off guide for AI agents (read this first)
 ├── README.md                      # This file
 ├── docs/
+│   ├── TODO.md                    # THE live work queue — stable IDs, ordered, audited
 │   ├── architecture.md            # Domain model, data model, scoring logic
-│   └── roadmap.md                 # Phase-by-phase build plan + status
+│   └── roadmap.md                 # Phase-by-phase build history + the gap audit
 └── eos_core/
     ├── scorecard_engine.py        # Pure scoring/aggregation/formula functions (no frappe deps)
     ├── hooks.py

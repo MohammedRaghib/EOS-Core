@@ -22,14 +22,17 @@ Read `docs/architecture.md` and `docs/roadmap.md` after this file.
 
 ## Start here
 
-Read in this order, then work from the verified gap list in `docs/roadmap.md`:
+Read in this order, then work from the queue in `docs/TODO.md`:
 
 1. This file — rules, commands, gotchas.
-2. `docs/roadmap.md` — **the real work queue**, including "Known gaps in Phases 1–5".
-3. `docs/architecture.md` — domain model, engine contract, terminology mapping.
-4. `eos_core/scorecard_engine.py` — frappe-free pure logic; the home for all new pure functions.
+2. `docs/TODO.md` — **the only live work queue**. Pick the top `TODO` item and follow its
+   "Done when" line.
+3. `docs/roadmap.md` — phase history and the audit behind the queue.
+4. `docs/architecture.md` — domain model, engine contract, terminology mapping.
+5. `eos_core/scorecard_engine.py` — frappe-free pure logic; the home for all new pure functions.
 
-Never rely on a "DONE" marker to mean a feature is usable — see the distinction in the roadmap.
+Never rely on a "DONE" marker in `roadmap.md` to mean a feature is usable — that marker only ever
+meant "the code exists and is unit-tested".
 
 ## Environment
 
@@ -93,8 +96,9 @@ apps/eos_core/
 ├── AGENTS.md                    # this file
 ├── README.md
 ├── docs/
+│   ├── TODO.md                  # THE live work queue — read this to pick up work
 │   ├── architecture.md          # domain + data model + scoring logic (READ FIRST)
-│   └── roadmap.md               # phases, statuses, and what to build next
+│   └── roadmap.md               # phase history + the audit behind the queue
 └── eos_core/
     ├── scorecard_engine.py      # PURE functions: status/indicator/aggregation/formulas/rollup
     └── eos_core/doctype/
@@ -231,41 +235,17 @@ end-to-end by a user.
 
 ## What to build next
 
-See `docs/roadmap.md`. The **code** for Phases 1–5 exists and is tested, but the verified gap list
-in that roadmap is the real work queue — in order:
+**`docs/TODO.md` is the only live work queue.** Read it before you start and before you finish.
 
-1. **Block 1 — open logic bugs: DONE.** Five correctness bugs fixed, plus two found during testing
-   (the `Float` re-save trap above, and an `evaluate_formula` guard that counted the supplied dict
-   rather than the formula's variables). **Four remain open** — see the roadmap's "Still open" table.
-2. **Block 2 — Ninety parity: DONE.**
-   - **2a** — Ninety's status indicator (3 most recently *completed* periods: Green all on track /
-     Yellow ≥1 miss / Red all 3 miss / "No Recent Data") as `compute_status_indicator` +
-     `completed_period_statuses`, persisted on `Scorecard Report Metric.status_indicator`. The
-     non-Ninety 10%-tolerance `compute_health` was deleted.
-   - **2a follow-up** — the window is the last 3 *completed calendar intervals* with `None` for
-     unscored ones, and those count against the result, per Ninety's "empty periods count against
-     the calculation". Before this, gaps were invisible and a measurable with holes could wrongly
-     read `Green`.
-   - **2b** — "View by" as the whitelisted read-only `Scorecard.get_rollup_view`.
-     `week_overlap_days` splits straddling weeks **by calendar day** (a week of Oct 27 – Nov 2
-     contributes 5/7 to October and 2/7 to November) and `aggregate_entries_for_period` applies
-     `EOS Metric.rollup`. The aggregate is display-only: `status`, `status_indicator` and the
-     on/off-track counts are untouched, and the weekly `goal` is deliberately left unaggregated.
-   - **2c** — `sort_metrics_by_group` orders the report snapshot and the L10 "Scorecard Review"
-     agenda by `Measurable Group.order`, ungrouped last.
-3. **Block 3 — Phase 6 Permissions & Roles (next).** Every DocType is currently System Manager only.
-   Create the six roles (Owner, Admin, Coach, Manager, Team Member, Observer) and per-DocType
-   DocPerm blocks from Ninety's matrix, recorded in the roadmap. Two Ninety rules to honour: Team
-   Members may reorder measurables within a group **even ones they do not own**, and only
-   Owner/Admin/Coach see the Measurable Manager. Editing the `permissions` block in any `*.json`
-   requires `bench --site resolv.localhost migrate` afterwards.
-4. **Block 4 — UI**, currently absent entirely, and the largest remaining parity gap.
+The **code** for Phases 1–5 exists and is tested, but that is not the same as usable — see the
+`code+tests` / `reachable` distinction in `docs/TODO.md` § Rules. As of 2026-09-28: 5 open logic
+bugs, permissions at 0%, and no UI at all.
 
-Also outstanding, and smaller than any of the above: the 4 open bugs, `Player.user` uniqueness,
-empty-controller tests, dead engine constants, the misnamed `test_quarter_bounds_rolls_over_year`,
-and the formatting debt listed in the roadmap (1 file indented with spaces, 20 files missing a
-trailing newline).
+Do not reconstruct the work queue from `docs/roadmap.md` or from this file. Both used to carry their
+own copies of the outstanding items, they drifted apart, and that is why the previous setup kept
+producing duplicate and stale todos. `roadmap.md` is the phase *history*; `architecture.md` is the
+*model*; `TODO.md` is the *tasks*.
 
-Re-read the roadmap before starting so naming and data flow stay consistent with the architecture
-document, and keep every behavioural decision grounded in Ninety's documented behaviour rather than
-assumption.
+Re-read `docs/roadmap.md` and `docs/architecture.md` before starting so naming and data flow stay
+consistent, and keep every behavioural decision grounded in Ninety's documented behaviour rather
+than assumption.
