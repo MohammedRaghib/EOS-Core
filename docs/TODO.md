@@ -337,6 +337,7 @@ Moved here when finished. Never deleted, never renumbered.
 | `BUG-3` | V/TO with one section populated left four empty | 2026-09-28 | `138eaf9` |
 | `BUG-4` | Dangling `parent_team` raised `TypeError` | 2026-09-28 | `8b5ea3e` |
 | `BUG-5` | Dangling `EOS Metric.group` raised `DoesNotExistError` | 2026-09-28 | `a5f5321` |
+| `DATA-1` | `Player.user` uniqueness / team-ownership rule undecided | 2026-09-28 | `aedbbc1` |
 | `DOC-1` | `architecture.md` wrongly said `Measurable Group` has no `title_field` | 2026-09-28 | `f6f3e73` |
 | `DOC-2` | `architecture.md` §4 engine table omitted `validate_formula_syntax` | 2026-09-28 | `f6f3e73` |
 
