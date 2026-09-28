@@ -25,6 +25,7 @@
 		<th>Actual</th>
 		<th>Target</th>
 		<th>Status</th>
+		<th>Indicator</th>
 		<th>Trend</th>
 	</tr>
 	{% for row in rows %}
@@ -35,6 +36,7 @@
 		<td>{{ row.actual }}</td>
 		<td>{{ row.target }}</td>
 		<td>{{ row.status or "—" }}</td>
+		<td>{{ row.status_indicator or "—" }}</td>
 		<td>{{ row.trend }}</td>
 	</tr>
 	{% endfor %}

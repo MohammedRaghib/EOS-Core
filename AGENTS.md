@@ -83,7 +83,7 @@ apps/eos_core/
 |---|---|---|
 | Metric master data | `EOS Metric` | DONE — `metric_name`, `owner`, `team`, `target_value`, `operator` (`>=`/`<=`/`==`/`Inside min/max`/`Outside min/max`), `min_value`, `max_value`, `frequency`, `unit`, `unit_type`, `rollup`, `is_smart`, `formula`, `scorecard`, `group`, `archived`, `description`, `entries` |
 | Period records | `Scorecard Entry` | DONE — `metric`, `week_start_date`, `actual_value`, `status` (On Track/Off Track), `is_manual` |
-| Scoring engine | `eos_core.scorecard_engine` | DONE — `compute_status`, `compute_achievement`, `compute_health`, `aggregate_values`, `extract_variables`, `evaluate_formula`, `prorate_for_period`, `count_consecutive_off_track`, `scorecard_summary`, `default_agenda_sections`, `build_scorecard_report` |
+| Scoring engine | `eos_core.scorecard_engine` | DONE — `compute_status`, `compute_achievement`, `compute_status_indicator`, `completed_period_statuses`, `aggregate_values`, `extract_variables`, `evaluate_formula`, `prorate_for_period`, `count_consecutive_off_track`, `scorecard_summary`, `default_agenda_sections`, `build_scorecard_report` |
 | Auto-status + formulas | `EOSMetric.validate` | DONE — range validation, auto-create Scorecard, formula validation/recalc, entry status loop |
 | Org structure | `Organization` / `Team` / `Player` | DONE — nested teams (cycle + cross-org validation), players mapped to users |
 | Scorecard header | `Scorecard` | DONE — `team` + `timeframe` (unique combo), format autoname, auto-created on metric save |
@@ -97,7 +97,7 @@ apps/eos_core/
 | Quarterly review | `Quarterly Review` | DONE — team × period snapshot of Rocks/To-Dos/Measurables |
 
 Tests: `bench --site resolv.localhost run-tests --app eos_core` runs the whole suite — 43
-integration + 26 pure-engine unit = **69 tests** (needs `allow_tests true`, already enabled on
+integration + 35 pure-engine unit = **82 tests** (needs `allow_tests true`, already enabled on
 `resolv.localhost`). To run a single module, add
 `--module eos_core.eos_core.doctype.rock.test_rock`.
 
@@ -109,9 +109,8 @@ the console. Treat "DONE" in the table above as "the code exists and is unit-tes
 feature is reachable by a user".
 
 **Read `docs/roadmap.md` § "Known gaps in Phases 1–5" before starting any phase.** It lists the
-unwired code (`compute_health`, `aggregate_values`/`rollup`, `prorate_for_period`,
-`Measurable Group.order`) and the open logic bugs, so you do not mistake tested-but-unwired code
-for working functionality.
+unwired code (`aggregate_values`/`rollup`, `prorate_for_period`, `Measurable Group.order`) and the
+open logic bugs, so you do not mistake tested-but-unwired code for working functionality.
 
 ## Working conventions
 
@@ -132,12 +131,15 @@ in that roadmap is the real work queue — in order:
 1. **Block 1 — open logic bugs** (Rock double-count in `quarterly_review`, report ignoring its own
    `week_start_date`, `validate_formula` rejecting valid formulas, `apply_formula` nulling
    user-entered values, `compute_achievement` division by zero).
-2. **Block 2 — Ninety parity for the unwired features.** Ninety's status indicator is a 3-most-
-   recently-*completed*-periods window (Green all on track / Yellow ≥1 miss / Red all 3 miss /
-   "No Recent Data"), which the existing `compute_health` tolerance calc does **not** implement.
-   `prorate_for_period` + `aggregate_values` + `rollup` are one feature (Ninety's "View by"
-   Week/Month/Quarter/Year aggregation, prorated at the weekly level). `Measurable Group.order`
-   must feed the L10 agenda order.
+2. **Block 2 — Ninety parity for the unwired features.**
+   - **2a DONE** — Ninety's status indicator (3 most recently *completed* periods: Green all on
+     track / Yellow ≥1 miss / Red all 3 miss / "No Recent Data") is implemented as
+     `compute_status_indicator` + `completed_period_statuses`, persisted on
+     `Scorecard Report Metric.status_indicator`. The non-Ninety 10%-tolerance `compute_health`
+     was deleted.
+   - **2b TODO** — `prorate_for_period` + `aggregate_values` + `rollup` are one feature (Ninety's
+     "View by" Week/Month/Quarter/Year aggregation, prorated at the weekly level).
+   - **2c TODO** — `Measurable Group.order` must feed the L10 agenda order.
 3. **Block 3 — Phase 6 Permissions & Roles** (Owner/Admin/Coach/Manager/Team Member/Observer →
    Frappe roles and DocPerm blocks). Ninety's matrix is published in its help centre.
 4. **Block 4 — UI**, currently absent entirely.

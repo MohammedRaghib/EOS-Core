@@ -27,7 +27,7 @@ Ninety's data model and workflows built as a native Frappe app.
 - **Phase 5 — EOS Operating System: DONE.** `V/TO` (five auto-populated sections), `Rock`
   with milestone-gated completion that cascades linked To-Dos, forward-only `To Do`, and
   `Quarterly Review` team snapshots (Rocks/To-Dos/Measurables). 15 tests pass.
-- **Test suite: 69 tests** (26 pure-engine unit + 43 integration) — all green. Run them all with
+- **Test suite: 82 tests** (35 pure-engine unit + 47 integration) — all green. Run them all with
   `bench --site resolv.localhost run-tests --app eos_core`.
 - **No user interface yet.** `public/js` is empty and there are no client scripts, so everything is
   currently reachable only through the default Frappe forms or the console.

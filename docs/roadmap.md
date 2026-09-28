@@ -17,8 +17,8 @@ Core data model and scoring logic for the "Data Component" of EOS.
 - [x] `Scorecard Entry` (Child, `istable=1`): `metric`(Link→EOS Metric), `week_start_date`,
       `actual_value`, `status` (`On Track`/`Off Track`)
 - [x] `entries` Table field on `EOS Metric` → `Scorecard Entry`
-- [x] `scorecard_engine.py`: `compute_status`, `compute_achievement`, `compute_health`,
-      `aggregate_values`
+- [x] `scorecard_engine.py`: `compute_status`, `compute_achievement`, `compute_status_indicator`,
+      `completed_period_statuses`, `aggregate_values`
 - [x] Auto-status on save via `EOSMetric.validate`
 - [x] DocTypes registered in DB (migrate run); app installed on `resolv.localhost`
 
@@ -40,7 +40,7 @@ Organization → Leadership team → Department → Team → Individual.
       - `EOSMetric.validate_owner_team`: when a metric is team-scoped its `owner` user must have a
         Player in that team (org-wide metrics with no `team` skip the rule)
 - [x] `team` Link added to `EOS Metric` (null = organization-wide/global)
-- [x] Tests: `test_team.py` (3), `test_eos_metric.py` (7); engine unit tests (24) — all green
+- [x] Tests: `test_team.py` (3), `test_eos_metric.py` (10); engine unit tests (35) — all green
 
 **Exit criteria (met):** org hierarchy usable (Organization → nested Teams), Players attached to
 teams and Users, metric creation scoped to a team, per-team list filters possible.
@@ -104,7 +104,7 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
       period (overdue judged against `period_end`), and team Measurables as **On Track / Off Track
       counts** (not green/red) via `build_quarterly_review`
 - [x] Tests: `test_rock.py` (5), `test_to_do.py` (4), `test_vto.py` (2),
-      `test_quarterly_review.py` (4) — all green; full suite 69 tests (26 unit + 43 integration)
+      `test_quarterly_review.py` (4) — all green; full suite 82 tests (35 unit + 47 integration)
 
 **Definition of done (met):** all 24 Eos Core DocTypes registered (migrate clean, zero orphans);
 create an Organization → auto-populated `V/TO`, add Rocks with milestones → mark complete cascades
@@ -120,7 +120,6 @@ genuinely incomplete.
 
 | Item | State |
 |---|---|
-| `compute_health` (Green/Yellow/Red) | Never called by any controller. It is also **not Ninety's algorithm** — Ninety derives the status indicator from the 3 most recently *completed* reporting intervals (Green = on target for all 3, Yellow = missed ≥1, Red = missed all 3, plus a "No Recent Data" state), not from a 10%-tolerance single-value check. Needs a rewrite, not wiring. |
 | `aggregate_values` + `EOS Metric.rollup` | `rollup` (Total/Average) is stored but has no effect. Ninety's equivalent is the "Show rollup data as" option governing Month/Quarter/Year "View by" aggregates. |
 | `prorate_for_period` | Never called. Signature is `(value, elapsed, total)` — it does **not** clamp to 0–1 despite `architecture.md` claiming it does, and negative input returns a negative value. Ninety prorates weekly entries into calendar periods, so this is required for rollup parity, not optional. |
 | `Measurable Group.order` | Stored, never read. Ninety: group order carries over to the L10 meeting agenda. |
@@ -159,12 +158,21 @@ Still open:
 - `Player`, `Organization` and `Scorecard Entry` controllers are empty (`pass`) with no tests.
   `Player.user` has no uniqueness rule, so one user can sit in many teams — which makes
   `EOSMetric.validate_owner_team` ambiguous about which team owns the user.
-- `compute_achievement`, `compute_health`, `aggregate_values` and `prorate_for_period` are covered
-  by unit tests but have no production call site; the tests give an impression of wiring that does
-  not exist.
-- Dead code in `scorecard_engine.py`: `_STATUS_ORDER_NONE`, `_STATUS_ORDERS`, `RANGE_OPERATORS`,
-  `ALL_OPERATORS`, `MATCHLESS_OPERATORS`, `SmartMetricStatus` are never referenced, and the
-  year-rollover branch in `_quarter_end` is unreachable.
+- `compute_achievement`, `aggregate_values` and `prorate_for_period` are covered by unit tests but
+  have no production call site; the tests give an impression of wiring that does not exist.
+- Dead code in `scorecard_engine.py`: `RANGE_OPERATORS`, `ALL_OPERATORS` and `MATCHLESS_OPERATORS`
+  are never referenced, and the year-rollover branch in `_quarter_end` is unreachable.
+
+## Block 2 — Ninety parity `[~] in progress`
+
+- [x] **2a Status indicator.** `compute_status_indicator` + `completed_period_statuses` implement
+      Ninety's 3-most-recently-*completed*-periods window; `Scorecard Report Metric.status_indicator`
+      persists it and the weekly report email renders it. `compute_health` deleted.
+- [ ] **2b Proration + rollup.** Fix `prorate_for_period` (currently returns negatives), add a
+      weekly-overlap ratio, and wire `aggregate_values` + `EOS Metric.rollup` into the report
+      snapshot for Ninety's "View by" Week/Month/Quarter/Year.
+- [ ] **2c Group order → L10.** Sort the report snapshot and the L10 "Scorecard Review" agenda by
+      `Measurable Group.order`.
 
 ## Phase 6 — Permissions & Roles `[ ]`
 

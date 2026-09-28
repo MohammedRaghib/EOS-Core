@@ -7,14 +7,15 @@ _SAFE_EXPRESSION = re.compile(r"^[\d\.\+\-\*\/\(\)\%\s]+$")
 
 _COMPARISON_OPERATORS = (">=", "<=", "==")
 _RANGE_OPERATORS = ("Inside min/max", "Outside min/max")
-_STATUS_ORDER_NONE = None
-_STATUS_ORDERS = {"Off Track", "On Track"}
 
 RANGE_OPERATORS = _RANGE_OPERATORS
 ALL_OPERATORS = _COMPARISON_OPERATORS + _RANGE_OPERATORS
 MATCHLESS_OPERATORS = ("==",)
 
-SmartMetricStatus = {"Green", "Yellow", "Red"}
+STATUS_WINDOW = 3
+STATUS_INDICATORS = ("Green", "Yellow", "Red", "No Recent Data")
+SCORED_STATUSES = ("On Track", "Off Track")
+WEEK_LENGTH_DAYS = 7
 
 
 def compute_status(target_value, actual_value, operator, min_value=None, max_value=None):
@@ -33,6 +34,38 @@ def compute_status(target_value, actual_value, operator, min_value=None, max_val
 	return "Off Track"
 
 
+def compute_status_indicator(statuses, window=STATUS_WINDOW):
+	scored = [status for status in statuses or [] if status in SCORED_STATUSES]
+	if not scored:
+		return "No Recent Data"
+	recent = scored[-window:] if window else scored
+	if all(status == "On Track" for status in recent):
+		return "Green"
+	if all(status == "Off Track" for status in recent):
+		return "Red"
+	return "Yellow"
+
+
+def is_period_complete(period_start, today=None):
+	period_start = _as_date(period_start)
+	today = _as_date(today) or _today()
+	if period_start is None:
+		return False
+	return _add_days(period_start, WEEK_LENGTH_DAYS - 1) < today
+
+
+def completed_period_statuses(entries, today=None):
+	today = _as_date(today) or _today()
+	dated = [
+		(_as_date(entry.get("week_start_date")), entry.get("status"))
+		for entry in entries or []
+		if entry.get("week_start_date")
+	]
+	completed = [pair for pair in dated if is_period_complete(pair[0], today)]
+	completed.sort(key=lambda pair: pair[0])
+	return [status for _, status in completed]
+
+
 def compute_achievement(target_value, actual_value, operator, min_value=None, max_value=None):
 	if actual_value is None:
 		return None
@@ -48,25 +81,6 @@ def compute_achievement(target_value, actual_value, operator, min_value=None, ma
 		return _clamp(target_value / actual_value * 100)
 	if operator == "==":
 		return _clamp((1 - abs(target_value - actual_value) / abs(target_value)) * 100)
-	return None
-
-
-def compute_health(target_value, actual_value, operator, tolerance=0.1, min_value=None, max_value=None):
-	if actual_value is None:
-		return None
-	if operator in _RANGE_OPERATORS:
-		return _range_health(actual_value, operator, tolerance, min_value, max_value)
-	if target_value is None or target_value == 0:
-		return None
-	if operator == ">=":
-		return _health_by_gap(actual_value - target_value, target_value, tolerance)
-	if operator == "<=":
-		return _health_by_gap(target_value - actual_value, target_value, tolerance)
-	if operator == "==":
-		deviation = abs(target_value - actual_value) / abs(target_value)
-		if deviation == 0:
-			return "Green"
-		return "Yellow" if deviation <= tolerance else "Red"
 	return None
 
 
@@ -176,32 +190,6 @@ def _range_status(actual_value, operator, min_value, max_value):
 	return None
 
 
-def _range_health(actual_value, operator, tolerance, min_value, max_value):
-	if operator == "Inside min/max":
-		if min_value is None and max_value is None:
-			return None
-		if _range_satisfied(actual_value, operator, min_value, max_value):
-			return "Green"
-		if min_value is not None and actual_value < min_value:
-			ratio = actual_value / min_value if min_value else 0.0
-			return "Yellow" if ratio >= 1 - tolerance else "Red"
-		if max_value is not None and actual_value > max_value:
-			ratio = max_value / actual_value if actual_value else 0.0
-			return "Yellow" if ratio >= 1 - tolerance else "Red"
-		return None
-	if operator == "Outside min/max":
-		if min_value is None and max_value is None:
-			return None
-		if _range_satisfied(actual_value, operator, min_value, max_value):
-			return "Green"
-		if min_value is not None and max_value is not None:
-			width = max_value - min_value
-			nearest_exit = min(actual_value - min_value, max_value - actual_value)
-			return "Red" if width > 0 and nearest_exit / width > tolerance else "Yellow"
-		return "Red"
-	return None
-
-
 def _eval_ast(node):
 	if isinstance(node, ast.Constant):
 		if isinstance(node.value, (int, float)):
@@ -291,6 +279,7 @@ def build_scorecard_report(metric_blocks, trend_threshold=3):
 				"operator": block.get("operator"),
 				"unit": block.get("unit"),
 				"status": block.get("status"),
+				"status_indicator": compute_status_indicator(block.get("completed_statuses")),
 				"consecutive_off_track": consecutive,
 			}
 		)
@@ -301,13 +290,6 @@ def build_scorecard_report(metric_blocks, trend_threshold=3):
 		if metric["consecutive_off_track"] >= trend_threshold
 	]
 	return {"metrics": metrics, "summary": summary, "trends": trends}
-
-
-def _health_by_gap(gap, target_value, tolerance):
-	if gap >= 0:
-		return "Green"
-	ratio = abs(gap) / abs(target_value)
-	return "Yellow" if ratio <= tolerance else "Red"
 
 
 def _clamp(value):
@@ -410,6 +392,25 @@ def _date(year, month, day):
 	import datetime as _dt
 
 	return _dt.date(year, month, day)
+
+
+def _as_date(value):
+	if value is None:
+		return None
+	if isinstance(value, str):
+		import datetime as _dt
+
+		try:
+			return _dt.date.fromisoformat(value)
+		except ValueError:
+			return None
+	return value.date() if hasattr(value, "date") else value
+
+
+def _add_days(value, days):
+	import datetime as _dt
+
+	return value + _dt.timedelta(days=days)
 
 
 def _today():

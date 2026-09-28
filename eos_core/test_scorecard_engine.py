@@ -6,12 +6,14 @@ from eos_core.scorecard_engine import (
 	build_quarterly_review,
 	build_scorecard_report,
 	compute_achievement,
-	compute_health,
 	compute_status,
+	compute_status_indicator,
+	completed_period_statuses,
 	count_consecutive_off_track,
 	default_agenda_sections,
 	evaluate_formula,
 	extract_variables,
+	is_period_complete,
 	prorate_for_period,
 	quarter_bounds,
 	rollup_rock_summary,
@@ -48,13 +50,67 @@ class TestScorecardEngine(unittest.TestCase):
 		self.assertEqual(compute_achievement(100, 0, ">="), 0.0)
 		self.assertEqual(compute_achievement(100, 0, "=="), 0.0)
 
-	def test_compute_health_bands(self):
-		self.assertEqual(compute_health(100, 110, ">="), "Green")
-		self.assertEqual(compute_health(100, 96, ">="), "Yellow")
-		self.assertEqual(compute_health(100, 40, ">="), "Red")
-		self.assertEqual(compute_health(100, 90, "<="), "Green")
-		self.assertEqual(compute_health(100, 102, "<="), "Yellow")
-		self.assertEqual(compute_health(100, 150, "<="), "Red")
+	def test_status_indicator_all_on_track(self):
+		self.assertEqual(compute_status_indicator(["On Track"] * 3), "Green")
+		self.assertEqual(compute_status_indicator(["On Track"] * 9), "Green")
+
+	def test_status_indicator_one_miss_is_yellow(self):
+		self.assertEqual(compute_status_indicator(["On Track", "Off Track", "On Track"]), "Yellow")
+		self.assertEqual(compute_status_indicator(["On Track", "On Track", "Off Track"]), "Yellow")
+
+	def test_status_indicator_all_missed_is_red(self):
+		self.assertEqual(compute_status_indicator(["Off Track"] * 3), "Red")
+		self.assertEqual(compute_status_indicator(["Off Track", "Off Track", "Off Track", "On Track"]), "Yellow")
+
+	def test_status_indicator_uses_only_last_three(self):
+		self.assertEqual(
+			compute_status_indicator(["Off Track", "Off Track", "Off Track", "On Track", "On Track", "On Track"]),
+			"Green",
+		)
+
+	def test_status_indicator_no_recent_data(self):
+		self.assertEqual(compute_status_indicator([]), "No Recent Data")
+		self.assertEqual(compute_status_indicator([None, None]), "No Recent Data")
+		self.assertEqual(compute_status_indicator(None), "No Recent Data")
+
+	def test_status_indicator_partial_history(self):
+		self.assertEqual(compute_status_indicator(["On Track", "On Track"]), "Green")
+		self.assertEqual(compute_status_indicator(["On Track", "Off Track"]), "Yellow")
+		self.assertEqual(compute_status_indicator(["Off Track"]), "Red")
+
+	def test_status_indicator_single_on_track_does_not_clear_red(self):
+		self.assertEqual(compute_status_indicator(["Off Track", "Off Track", "On Track"]), "Yellow")
+
+	def test_is_period_complete(self):
+		week = datetime.date(2026, 9, 21)
+		self.assertFalse(is_period_complete(week, datetime.date(2026, 9, 27)))
+		self.assertTrue(is_period_complete(week, datetime.date(2026, 9, 28)))
+		self.assertFalse(is_period_complete(week, datetime.date(2026, 9, 21)))
+		self.assertTrue(is_period_complete("2026-09-21", "2026-10-01"))
+		self.assertFalse(is_period_complete(None, datetime.date(2026, 9, 28)))
+
+	def test_completed_period_statuses_excludes_in_progress(self):
+		entries = [
+			{"week_start_date": "2026-08-31", "status": "On Track"},
+			{"week_start_date": "2026-09-07", "status": "Off Track"},
+			{"week_start_date": "2026-09-14", "status": "On Track"},
+			{"week_start_date": "2026-09-21", "status": "Off Track"},
+			{"week_start_date": "2026-09-28", "status": "Off Track"},
+		]
+		completed = completed_period_statuses(entries, today="2026-09-28")
+		self.assertEqual(completed, ["On Track", "Off Track", "On Track", "Off Track"])
+		self.assertEqual(compute_status_indicator(completed), "Yellow")
+
+	def test_completed_period_statuses_sorted_oldest_first(self):
+		entries = [
+			{"week_start_date": datetime.date(2026, 9, 14), "status": "Off Track"},
+			{"week_start_date": datetime.date(2026, 9, 7), "status": "On Track"},
+		]
+		self.assertEqual(completed_period_statuses(entries, today="2026-09-28"), ["On Track", "Off Track"])
+
+	def test_completed_period_statuses_ignores_missing_dates(self):
+		entries = [{"status": "On Track"}, {"week_start_date": None, "status": "Off Track"}]
+		self.assertEqual(completed_period_statuses(entries, today="2026-09-28"), [])
 
 	def test_aggregate_values(self):
 		self.assertEqual(aggregate_values([1, 2, None, 3], "Total"), 6.0)
@@ -84,14 +140,6 @@ class TestScorecardEngine(unittest.TestCase):
 		)
 		self.assertEqual(compute_achievement(None, 70, "Outside min/max", 80, 120), 100.0)
 		self.assertEqual(compute_achievement(None, 100, "Outside min/max", 80, 120), 0.0)
-
-	def test_range_health(self):
-		self.assertEqual(compute_health(None, 90, "Inside min/max", min_value=80, max_value=120), "Green")
-		self.assertEqual(compute_health(None, 75, "Inside min/max", min_value=80, max_value=120), "Yellow")
-		self.assertEqual(compute_health(None, 60, "Inside min/max", min_value=80, max_value=120), "Red")
-		self.assertEqual(compute_health(None, 70, "Outside min/max", min_value=80, max_value=120), "Green")
-		self.assertEqual(compute_health(None, 116, "Outside min/max", min_value=80, max_value=120), "Yellow")
-		self.assertEqual(compute_health(None, 110, "Outside min/max", min_value=80, max_value=120), "Red")
 
 	def test_extract_variables(self):
 		self.assertEqual(extract_variables("{Revenue} / {Cost} * 100"), ["Cost", "Revenue"])

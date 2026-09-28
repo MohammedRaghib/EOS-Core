@@ -26,7 +26,7 @@ Ninety is built around these tools:
 | Rollup (Total/Average) | `rollup` on `EOS Metric` | Ninety's "Show rollup data as" option. Governs how weekly values aggregate into Month/Quarter/Year "View by" views. **Stored but not yet wired to any call site.** |
 | Groups | `Measurable Group` (Phase 3) | Up to 20 labelled groups per Scorecard; linked from `EOS Metric.group`. `order` is stored but never read; Ninety carries group order into the L10 agenda |
 | Team / Org levels (1–5) | `Organization` / `Team` / `Player` | One `Organization`, nested `Team`s (Leadership → Department → Team), `Player`s per team |
-| Status colors (green/yellow/red) | **not implemented** | Ninety derives the indicator from the 3 most recently **completed** reporting intervals: Green = on target for all 3, Yellow = missed at least one, Red = missed all 3, plus a "No Recent Data" state when none of the 3 are scored. The current in-progress period is excluded. This app stores `On Track`/`Off Track` per entry only and has **no** indicator implementation. The existing `compute_health` is a 10%-tolerance single-value check, is never called, and does not match this rule. |
+| Status colors (green/yellow/red) | **implemented (Block 2a)** | Ninety derives the indicator from the 3 most recently **completed** reporting intervals: Green = on target for all 3, Yellow = missed at least one, Red = missed all 3, plus "No Recent Data" when none of the 3 are scored. The current in-progress period is excluded. `compute_status_indicator` + `completed_period_statuses` implement this, and `Scorecard Report Metric.status_indicator` persists it per metric. The non-Ninety 10%-tolerance `compute_health` was deleted. Fewer than 3 completed periods is treated as "all periods present", so 1 missed of 1 is Red. |
 | Off-track 3 weeks → Issue | `count_consecutive_off_track` (Phase 3) | Right-click "Make it an Issue" workflow (Phase 4) |
 | Formula Builder (Smart Measurable) | `is_smart` + `formula` on `EOS Metric` (Phase 3) | Computed measurables referencing other measurables via `{Name}` syntax (max 25 vars) |
 | Scorecard (Phase 3) | `Scorecard` DocType | `team` + `timeframe` combination; auto-created when team metric saved |
@@ -380,7 +380,9 @@ Pure, frappe-free functions so they are trivially testable. Behaviour (defaults,
 |---|---|---|
 | `compute_status` | `(target_value, actual_value, operator, min_value=None, max_value=None)` | `On Track`/`Off Track`. Ranges: Inside = on-track within bounds; Outside = on-track outside bounds. `>=`: actual ≥ target. `<=`: actual ≤ target. `==`: exact equality. Missing actual → `None`. Missing target → `On Track`. |
 | `compute_achievement` | `(target_value, actual_value, operator, min_value=None, max_value=None)` | Percent of goal, clamped 0–100. Ranges: Inside = 100 in-range, else ratio to boundary. Outside = 100 outside, else distance-to-edge. |
-| `compute_health` | `(target_value, actual_value, operator, tolerance=0.1, min_value=None, max_value=None)` | `Green`/`Yellow`/`Red` by proximity to target within `tolerance`. **Not Ninety's status-indicator algorithm** (that is a 3-completed-interval window), and **not called anywhere in the app**. Candidate for removal. |
+| `compute_status_indicator` | `(statuses, window=3)` | Ninety's status indicator over the last `window` scored periods: all `On Track` → `Green`, all `Off Track` → `Red`, otherwise `Yellow`. No scored period at all → `No Recent Data`. Unscored (`None`) entries are ignored. |
+| `is_period_complete` | `(period_start, today=None)` | `True` once all 7 days of a weekly period have elapsed (`period_start + 6 days < today`). Accepts `date`, `datetime` or ISO string. The current in-progress week is therefore never complete. |
+| `completed_period_statuses` | `(entries, today=None)` | Statuses of completed periods only, sorted oldest → newest. `entries` need `week_start_date` and `status`. Entries without a date are dropped. |
 | `aggregate_values` | `(values, rollup)` | `Total` = sum, `Average` = mean of numeric values; skips `None`. |
 | `extract_variables` | `(formula)` | Parses `{Name}` references from a formula string. Returns sorted list of names. |
 | `evaluate_formula` | `(formula, variables)` | Safe AST-based evaluator. `{Name}` vars replaced with floats, div-by-zero → `None`. Max 25 vars. |
@@ -465,8 +467,9 @@ See `docs/roadmap.md` for status. The target model adds:
   UI trigger. Everything is reachable only through the default Frappe form or the console. The
   Scorecard grid, column toggles, "View by" switch, trends view, bulk paste and PDF export remain
   unbuilt — they are not tracked as a roadmap phase.
-- `compute_health`, `aggregate_values`, `prorate_for_period` and `EOS Metric.rollup` are unit-tested
-  but have no production call site; the tests can suggest wiring that does not exist.
+- `aggregate_values`, `prorate_for_period` and `EOS Metric.rollup` are unit-tested but have no production
+  call site; the tests can suggest wiring that does not exist. (`compute_health` was removed, since it
+  encoded a tolerance rule Ninety does not use.)
 - `To Do.todo_name` is not enforced unique. `VTO` uses hash naming (there is no `format` autoname),
   so VTO documents appear as hashes in list views.
 - Known bugs and the full unwired list are in `docs/roadmap.md` § "Known gaps in Phases 1–5".

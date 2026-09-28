@@ -139,6 +139,79 @@ class TestScorecardReport(IntegrationTestCase):
 		self.assertIn("SR Bad", kwargs["message"])
 		self.assertIn("off track", kwargs["message"].lower())
 
+	def test_status_indicator_uses_completed_periods_only(self):
+		team = self._seed_metrics()
+		report = frappe.get_doc(
+			{
+				"doctype": "Scorecard Report",
+				"team": team.name,
+				"week_start_date": "2026-09-07",
+			}
+		).insert()
+		indicators = {row.metric: row.status_indicator for row in report.report_metrics}
+		self.assertEqual(indicators["SR Good"], "Green")
+		self.assertEqual(indicators["SR Bad"], "Red")
+
+	def test_status_indicator_ignores_in_progress_report_week(self):
+		team = self._seed_metrics()
+		report = frappe.get_doc(
+			{
+				"doctype": "Scorecard Report",
+				"team": team.name,
+				"week_start_date": "2026-09-14",
+			}
+		).insert()
+		self.assertEqual(report.status, "Draft")
+		good = next(row for row in report.report_metrics if row.metric == "SR Good")
+		bad = next(row for row in report.report_metrics if row.metric == "SR Bad")
+		self.assertEqual(bad.status_indicator, "Red")
+		self.assertEqual(good.status_indicator, "Green")
+
+	def test_status_indicator_no_recent_data(self):
+		team = frappe.get_doc({"doctype": "Team", "team_name": "SR Empty"}).insert()
+		frappe.get_doc(
+			{
+				"doctype": "Player",
+				"player_name": "SR Empty Leader",
+				"user": "Administrator",
+				"team": team.name,
+			}
+		).insert()
+		frappe.get_doc(
+			{
+				"doctype": "EOS Metric",
+				"metric_name": "SR Unscored",
+				"owner": "Administrator",
+				"team": team.name,
+				"target_value": 100,
+				"operator": ">=",
+				"frequency": "Weekly",
+			}
+		).insert()
+		report = frappe.get_doc(
+			{
+				"doctype": "Scorecard Report",
+				"team": team.name,
+				"week_start_date": "2026-09-07",
+			}
+		).insert()
+		row = next(row for row in report.report_metrics if row.metric == "SR Unscored")
+		self.assertEqual(row.status_indicator, "No Recent Data")
+
+	def test_send_report_includes_indicator(self):
+		team = self._seed_metrics()
+		report = frappe.get_doc(
+			{
+				"doctype": "Scorecard Report",
+				"team": team.name,
+				"week_start_date": "2026-09-07",
+			}
+		).insert()
+		with mock.patch.object(frappe, "sendmail") as sendmail:
+			report.send_report()
+		message = sendmail.call_args.kwargs["message"]
+		self.assertIn("Red", message)
+
 	def tearDown(self):
 		frappe.db.delete("Scorecard Report Metric")
 		frappe.db.delete("Scorecard Report")

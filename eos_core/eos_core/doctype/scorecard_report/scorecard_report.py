@@ -2,7 +2,7 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import format_datetime, get_datetime, now_datetime
 
-from eos_core.scorecard_engine import build_scorecard_report
+from eos_core.scorecard_engine import build_scorecard_report, completed_period_statuses
 
 TREND_THRESHOLD = 3
 EMAIL_TEMPLATE = "emails/weekly_scorecard_report.html"
@@ -45,6 +45,7 @@ class ScorecardReport(Document):
 					"actual_value": metric["actual"],
 					"target_value": metric["target"],
 					"status": metric["status"],
+					"status_indicator": metric["status_indicator"],
 					"trend": metric["consecutive_off_track"],
 				},
 			)
@@ -84,6 +85,7 @@ class ScorecardReport(Document):
 			"unit": metric.unit,
 			"status": latest.status if latest else None,
 			"statuses": [entry.status for entry in entries],
+			"completed_statuses": completed_period_statuses(entries, today=self.week_start_date),
 		}
 
 	def _entries_up_to(self, metric_name):
@@ -148,6 +150,7 @@ class ScorecardReport(Document):
 					"actual": row.actual_value,
 					"target": row.target_value,
 					"status": row.status,
+					"status_indicator": row.status_indicator,
 					"trend": row.trend,
 				}
 				for row in self.get("report_metrics", [])
