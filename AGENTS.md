@@ -242,8 +242,9 @@ end-to-end by a user.
 **`docs/TODO.md` is the only live work queue.** Read it before you start and before you finish.
 
 The **code** for Phases 1–5 exists and is tested, but that is not the same as usable — see the
-`code+tests` / `reachable` distinction in `docs/TODO.md` § Rules. As of 2026-09-28: 3 open logic
-bugs, permissions at 0%, and no UI at all.
+`code+tests` / `reachable` distinction in `docs/TODO.md` § Rules. As of 2026-09-28, after Block A was
+closed: **0 open logic bugs**, permissions partially started (the six roles exist but gate nothing —
+`PERM-1` done, `PERM-2` next), and no UI at all.
 
 Do not reconstruct the work queue from `docs/roadmap.md` or from this file. Both used to carry their
 own copies of the outstanding items, they drifted apart, and that is why the previous setup kept

@@ -7,6 +7,10 @@ not queued.
 Last full audit: **2026-09-28** — every item below was re-verified against the code, the live
 `resolv.localhost` database, and a 129-test run. 129/129 green at that date.
 
+**Since that audit**, Block A was closed in full (`BUG-1`..`BUG-5`, `DATA-1`) and `PERM-1` landed,
+taking the suite to **144 (81 integration + 63 unit)**, all green. `DATA-2` was found while closing
+`DATA-1` and is new. The 129 figure above is kept as the audit record; the live count is 144.
+
 ## Rules for agents working this queue
 
 These exist because the previous setup had three competing lists in three formats, and they drifted.

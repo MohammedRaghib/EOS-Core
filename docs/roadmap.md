@@ -115,7 +115,7 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
       period (overdue judged against `period_end`), and team Measurables as **On Track / Off Track
       counts** (not green/red) via `build_quarterly_review`
 - [x] Tests: `test_rock.py` (5), `test_to_do.py` (5),
-      `test_quarterly_review.py` (5), `test_vto.py` (4) — all green; full suite 140 tests (63 unit + 77 integration)
+      `test_quarterly_review.py` (5), `test_vto.py` (4) — all green; full suite 144 tests (63 unit + 81 integration)
 
 **Definition of done (met):** all 24 Eos Core DocTypes registered (migrate clean, zero orphans);
 create an Organization → auto-populated `V/TO`, add Rocks with milestones → mark complete cascades
@@ -191,7 +191,7 @@ the audit and is tracked in `TODO.md`.
   `.editorconfig` / `pyproject.toml` (`indent-style = "tab"`) and would be rewritten wholesale by
   `ruff-format`; and **20** `.py` files are missing a final newline.
 - **The database holds test residue only** (~1 Organization, 1 Team, 1 Player, 1 Scorecard).
-  Nothing has been exercised end-to-end by a user — the 140 green tests are not evidence that any
+  Nothing has been exercised end-to-end by a user — the 144 green tests are not evidence that any
   workflow works in the browser.
 
 ## Block 2 — Ninety parity `[x] DONE`
