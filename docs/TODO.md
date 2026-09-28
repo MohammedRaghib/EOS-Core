@@ -39,7 +39,7 @@ Follow them exactly.
 ```bash
 cd /workspace/development/frappe-bench
 bench --site resolv.localhost migrate                      # after ANY *.json edit, incl. permissions
-bench --site resolv.localhost run-tests --app eos_core     # full suite, 133 tests
+bench --site resolv.localhost run-tests --app eos_core     # full suite, 134 tests
 bench --site resolv.localhost run-tests --module eos_core.eos_core.doctype.issue.test_issue   # one module
 ./env/bin/python -c "import sys; sys.path.insert(0,'apps/eos_core'); from eos_core.scorecard_engine import compute_status"  # engine only, no DB
 ```
@@ -51,24 +51,15 @@ bench --site resolv.localhost run-tests --module eos_core.eos_core.doctype.issue
 
 # Queue
 
-## Next up: `BUG-4` → then Block A in order
+## Next up: `BUG-5` → then Block A in order
 
-Block A is five small, verified bugs. **Two remain open**; `BUG-1` (the only one that put wrong
+Block A is five small, verified bugs. **One remains open**; `BUG-1` (the only one that put wrong
 data in front of a user) is closed. Blocks B (permissions) and C (UI) are where the actual product
 is; nothing built so far is usable by anyone but a developer with a console.
 
 ---
 
-## Block A — Correctness (3 open, 3 done)
-
-### BUG-4 — S3 · Dangling `parent_team` raises `TypeError`
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
-**Where** `eos_core/eos_core/doctype/team/team.py:22`
-**Bug** the `while current:` walk-up unpacks
-`frappe.db.get_value("Team", current, ["organization", "parent_team"])` with no `None` guard, so a
-dangling link raises `TypeError: cannot unpack non-iterable NoneType` instead of a clean validation
-error.
-**Done when** the walk-up guards the result and throws a readable validation error.
+## Block A — Correctness (2 open, 4 done)
 
 ### BUG-5 — S3 · Dangling `EOS Metric.group` raises `DoesNotExistError`
 **Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · *found 2026-09-28, not in any prior list*
@@ -347,8 +338,17 @@ Moved here when finished. Never deleted, never renumbered.
 | `BUG-1` | Issue streak ignored the anchor week | 2026-09-28 | `08757c4` |
 | `BUG-2` | `send_report` opened the template without an encoding | 2026-09-28 | `ce168c8` |
 | `BUG-3` | V/TO with one section populated left four empty | 2026-09-28 | `138eaf9` |
+| `BUG-4` | Dangling `parent_team` raised `TypeError` | 2026-09-28 | *(this commit)* |
 | `DOC-1` | `architecture.md` wrongly said `Measurable Group` has no `title_field` | 2026-09-28 | `f6f3e73` |
 | `DOC-2` | `architecture.md` §4 engine table omitted `validate_formula_syntax` | 2026-09-28 | `f6f3e73` |
+
+**`BUG-4`** — the walk-up now uses `as_dict=True` and throws a `frappe.ValidationError` naming the
+missing team. Note the reachable path is a dangling **grandparent**, not a dangling `parent_team`:
+Frappe runs `_validate_links()` *before* `validate()` on insert, so a child pointing at a
+non-existent parent is already rejected by the framework. The bug only fires when a grandparent is
+deleted after the child was saved, so the test inserts a three-level chain, deletes the top team,
+then saves the child. Confirmed it raised `TypeError: cannot unpack non-iterable NoneType object`
+before the fix. Suite: 134/134.
 
 **`BUG-3`** — **deviated from the item's suggested `or`**, deliberately. Switching `and` to `or`
 would make the guard pass, but `populate_sections` appends *all five* sections unconditionally, so a
@@ -386,4 +386,4 @@ neither and shows bare hashes.
 reason for existing (it does not evaluate, which is why `{A}/(1-{B})` is not rejected for dividing by
 zero). §4 now lists 29 of 29 public functions and agrees with `AGENTS.md`.
 
-Next item to land: `BUG-4`.
+Next item to land: `BUG-5`.

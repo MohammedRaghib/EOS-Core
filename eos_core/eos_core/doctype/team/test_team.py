@@ -47,6 +47,35 @@ class TestTeam(IntegrationTestCase):
 		).insert()
 		self.assertEqual(dept.parent_team, leadership.name)
 
+	def test_dangling_grandparent_raises_validation_error(self):
+		org = frappe.get_doc({"doctype": "Organization", "organization_name": "GM Dangling Org"}).insert()
+		grandparent = frappe.get_doc(
+			{"doctype": "Team", "team_name": "GM Dangling Grandparent", "organization": org.name}
+		).insert()
+		parent = frappe.get_doc(
+			{
+				"doctype": "Team",
+				"team_name": "GM Dangling Parent",
+				"organization": org.name,
+				"parent_team": grandparent.name,
+			}
+		).insert()
+		child = frappe.get_doc(
+			{
+				"doctype": "Team",
+				"team_name": "GM Dangling Child",
+				"organization": org.name,
+				"parent_team": parent.name,
+			}
+		).insert()
+
+		frappe.delete_doc("Team", grandparent.name, force=True)
+
+		with self.assertRaises(frappe.ValidationError) as context:
+			child.team_name = "GM Dangling Child Renamed"
+			child.save()
+		self.assertIn(grandparent.name, str(context.exception))
+
 	def tearDown(self):
 		frappe.db.delete("Player")
 		frappe.db.delete("Team")

@@ -148,7 +148,7 @@ apps/eos_core/
 | Quarterly review | `Quarterly Review` | DONE — team × period snapshot of Rocks/To-Dos/Measurables |
 
 Tests: `bench --site resolv.localhost run-tests --app eos_core` runs the whole suite in one go —
-**70 integration + 63 pure-engine unit = 133 tests**, all green (needs `allow_tests true`, already
+**71 integration + 63 pure-engine unit = 134 tests**, all green (needs `allow_tests true`, already
 enabled on `resolv.localhost`). The split by file:
 
 | Integration test | Count |
@@ -160,10 +160,10 @@ enabled on `resolv.localhost`). The split by file:
 | `doctype/rock/test_rock.py` | 5 |
 | `doctype/scorecard/test_scorecard.py` | 13 |
 | `doctype/scorecard_report/test_scorecard_report.py` | 13 |
-| `doctype/team/test_team.py` | 3 |
+| `doctype/team/test_team.py` | 4 |
 | `doctype/to_do/test_to_do.py` | 5 |
 | `doctype/vto/test_vto.py` | 4 |
-| **Integration total** | **70** |
+| **Integration total** | **71** |
 | `eos_core/test_scorecard_engine.py` (unit, frappe-free) | **63** |
 
 Re-derive these with `grep -rc 'def test_'` rather than trusting the table — the documented totals
@@ -178,7 +178,7 @@ default Frappe form or the console. Treat "DONE" in the table above as "the code
 feature is reachable by a user".
 
 **Read `docs/roadmap.md` § "Known gaps in Phases 1–5" before starting any phase.** It separates
-bugs that are *fixed* from those *still open* (3 remain), lists code that exists but has no call
+bugs that are *fixed* from those *still open* (none), lists code that exists but has no call
 site, and records that the database holds only test residue — nothing has been exercised
 end-to-end by a user.
 

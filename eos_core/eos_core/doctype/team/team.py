@@ -19,7 +19,12 @@ class Team(Document):
 			if current in seen:
 				break
 			seen.add(current)
-			parent_org, parent_team = frappe.db.get_value("Team", current, ["organization", "parent_team"])
-			if organization and parent_org and parent_org != organization:
+			parent = frappe.db.get_value("Team", current, ["organization", "parent_team"], as_dict=True)
+			if not parent:
+				frappe.throw(
+					f"Parent team {frappe.bold(current)} no longer exists. "
+					"Reassign the parent team before saving."
+				)
+			if organization and parent.organization and parent.organization != organization:
 				frappe.throw("Parent team belongs to a different organization")
-			current = parent_team
+			current = parent.parent_team
