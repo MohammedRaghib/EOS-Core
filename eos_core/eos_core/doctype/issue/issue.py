@@ -59,7 +59,7 @@ def create_issue_from_metric(metric_name, week_start_date=None, owner_user=None)
 	if entry.status == "On Track":
 		frappe.throw("Cannot create an Issue from an On Track entry.")
 
-	consecutive = count_consecutive_from_db(metric_name)
+	consecutive = count_consecutive_from_db(metric_name, entry.week_start_date)
 
 	owner = owner_user
 	if not owner:
@@ -104,10 +104,13 @@ def leader_user_for_metric(metric):
 	return frappe.db.get_value("Player", leader_player, "user")
 
 
-def count_consecutive_from_db(metric_name):
+def count_consecutive_from_db(metric_name, as_of=None):
+	filters = {"metric": metric_name}
+	if as_of:
+		filters["week_start_date"] = ["<=", as_of]
 	statuses = frappe.get_all(
 		"Scorecard Entry",
-		filters={"metric": metric_name},
+		filters=filters,
 		fields=["status"],
 		order_by="week_start_date asc",
 		pluck="status",

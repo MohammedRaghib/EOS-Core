@@ -39,7 +39,7 @@ Follow them exactly.
 ```bash
 cd /workspace/development/frappe-bench
 bench --site resolv.localhost migrate                      # after ANY *.json edit, incl. permissions
-bench --site resolv.localhost run-tests --app eos_core     # full suite, 129 tests
+bench --site resolv.localhost run-tests --app eos_core     # full suite, 130 tests
 bench --site resolv.localhost run-tests --module eos_core.eos_core.doctype.issue.test_issue   # one module
 ./env/bin/python -c "import sys; sys.path.insert(0,'apps/eos_core'); from eos_core.scorecard_engine import compute_status"  # engine only, no DB
 ```
@@ -51,26 +51,15 @@ bench --site resolv.localhost run-tests --module eos_core.eos_core.doctype.issue
 
 # Queue
 
-## Next up: `BUG-1` → then Block A in order
+## Next up: `BUG-2` → then Block A in order
 
-Block A is five small, verified bugs. `BUG-1` is the only one that puts wrong data in front of a
-user. Blocks B (permissions) and C (UI) are where the actual product is; nothing built so far is
-usable by anyone but a developer with a console.
+Block A is five small, verified bugs. **Four remain open**; `BUG-1` (the only one that put wrong
+data in front of a user) is closed. Blocks B (permissions) and C (UI) are where the actual product
+is; nothing built so far is usable by anyone but a developer with a console.
 
 ---
 
-## Block A — Correctness (6 items)
-
-### BUG-1 — S1 · Issue streak ignores the anchor week
-**Status** `TODO` · code+tests ☐ · reachable n/a · **Verified 2026-09-28**
-**Where** `eos_core/eos_core/doctype/issue/issue.py:107`, called from `:62`
-**Bug** `count_consecutive_from_db(metric_name)` takes only a metric name. It loads the metric's
-*entire* entry history and counts the trailing off-track run across all of it.
-`create_issue_from_metric` accepts a `week_start_date` and correctly looks up that single week for
-the actual value, then calls this — so an Issue raised about an old week is stamped with a streak
-that runs through the *most recent* week.
-**Done when** the streak is bounded at the requested week: an Issue for week W reports the run
-ending at W, with a test using two non-adjacent weeks so an unbounded count cannot pass.
+## Block A — Correctness (5 open, 1 done)
 
 ### BUG-2 — S3 · `send_report` opens the template without an encoding
 **Status** `TODO` · code+tests ☐ · reachable n/a · **Verified 2026-09-28**
@@ -372,8 +361,19 @@ Moved here when finished. Never deleted, never renumbered.
 
 | ID | Item | Closed | SHA |
 |---|---|---|---|
+| `BUG-1` | Issue streak ignored the anchor week | 2026-09-28 | *(uncommitted)* |
 | `DOC-1` | `architecture.md` wrongly said `Measurable Group` has no `title_field` | 2026-09-28 | `f6f3e73` |
 | `DOC-2` | `architecture.md` §4 engine table omitted `validate_formula_syntax` | 2026-09-28 | `f6f3e73` |
+
+**`BUG-1`** — first re-verified the bug still reproduces by writing the "Done when" test before
+touching the code: an Issue for week `2026-09-14` was stamped `Consecutive Off Track: 2` because the
+trailing run bled through `2026-09-21`. Fix is `count_consecutive_from_db(metric_name, as_of=None)`,
+which now caps the query with `week_start_date <= as_of`; `create_issue_from_metric` passes the
+resolved entry's `week_start_date`. The default week-starts list is
+`2026-08-31 (off) / 2026-09-07 (on) / 2026-09-14 (off) / 2026-09-21 (off)`, so the unbounded count is
+2 and the correct bounded count for `2026-09-14` is 1 — the test asserts both, so an unbounded
+implementation cannot pass it. Note the *no-argument* call path still reports 2 for the latest week,
+which is the intended "current streak" behaviour. Suite: 130/130 (67 integration + 63 unit).
 
 **`DOC-1`** — re-verified against `measurable_group.json` and the live `tabDocType` row, then §7
 rewritten to state the two DocTypes separately: both are hash-named, but `Measurable Group` sets
@@ -384,4 +384,4 @@ neither and shows bare hashes.
 reason for existing (it does not evaluate, which is why `{A}/(1-{B})` is not rejected for dividing by
 zero). §4 now lists 29 of 29 public functions and agrees with `AGENTS.md`.
 
-Next item to land: `BUG-1`.
+Next item to land: `BUG-2`.

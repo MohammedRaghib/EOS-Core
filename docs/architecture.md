@@ -209,7 +209,10 @@ erDiagram
 - **"Make it an Issue"** (`create_issue_from_metric`): given a metric (optionally a
   `week_start_date`), takes the matching entry, rejects `On Track` entries, defaults owner to the
   team leader's User, and records `source=Scorecard` + `originating_metric` plus the consecutive
-  off-track streak in the description.
+  off-track streak in the description. The streak is **bounded at the entry's own week**:
+  `count_consecutive_from_db(metric_name, as_of=None)` caps its query with `week_start_date <= as_of`,
+  so an Issue raised about an older week reports the run ending at that week rather than one running
+  through the most recent week. With no `as_of` it is the current streak.
 - **Level 10 Meeting**: one per team × date. Format autoname `{team}-{meeting_date}`; `status`
   transitions `Planned → In Progress → Complete` are enforced. The standard 6 agenda sections are
   auto-added on insert (`default_agenda_sections`).
