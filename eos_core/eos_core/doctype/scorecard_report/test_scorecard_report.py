@@ -4,6 +4,8 @@ from unittest import mock
 
 from eos_core.scorecard_engine import STATUS_INDICATORS
 
+EMAIL_TEMPLATE_NAME = "weekly_scorecard_report.html"
+
 
 class TestScorecardReport(IntegrationTestCase):
 	def setUp(self):
@@ -202,6 +204,33 @@ class TestScorecardReport(IntegrationTestCase):
 		self.assertEqual(kwargs["recipients"], ["Administrator"])
 		self.assertIn("SR Bad", kwargs["message"])
 		self.assertIn("off track", kwargs["message"].lower())
+
+	def test_send_report_reads_template_as_utf8(self):
+		team = self._seed_metrics()
+		report = frappe.get_doc(
+			{
+				"doctype": "Scorecard Report",
+				"team": team.name,
+				"week_start_date": "2026-09-07",
+			}
+		).insert()
+		real_open = open
+		calls = []
+
+		def recording_open(path, *args, **kwargs):
+			calls.append((str(path), kwargs))
+			return real_open(path, *args, **kwargs)
+
+		with mock.patch.object(frappe, "sendmail") as sendmail:
+			with mock.patch("builtins.open", recording_open):
+				report.send_report()
+
+		template_calls = [
+			kwargs for path, kwargs in calls if path.endswith(EMAIL_TEMPLATE_NAME)
+		]
+		self.assertEqual(len(template_calls), 1)
+		self.assertEqual(template_calls[0].get("encoding"), "utf-8")
+		self.assertIn("—", sendmail.call_args.kwargs["message"])
 
 	def test_status_indicator_uses_completed_periods_only(self):
 		team = self._seed_metrics()

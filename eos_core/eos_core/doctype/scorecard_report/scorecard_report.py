@@ -137,7 +137,7 @@ class ScorecardReport(Document):
 		if not recipient:
 			frappe.throw(f"No recipient configured for team {frappe.bold(self.team)}.")
 		template_path = frappe.get_app_path("eos_core", "templates", EMAIL_TEMPLATE)
-		with open(template_path) as f:
+		with open(template_path, encoding="utf-8") as f:
 			template_str = f.read()
 		html = frappe.render_template(template_str, self._email_context())
 		frappe.sendmail(

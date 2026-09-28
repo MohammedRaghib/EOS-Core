@@ -148,7 +148,7 @@ apps/eos_core/
 | Quarterly review | `Quarterly Review` | DONE — team × period snapshot of Rocks/To-Dos/Measurables |
 
 Tests: `bench --site resolv.localhost run-tests --app eos_core` runs the whole suite in one go —
-**67 integration + 63 pure-engine unit = 130 tests**, all green (needs `allow_tests true`, already
+**68 integration + 63 pure-engine unit = 131 tests**, all green (needs `allow_tests true`, already
 enabled on `resolv.localhost`). The split by file:
 
 | Integration test | Count |
@@ -159,11 +159,11 @@ enabled on `resolv.localhost`). The split by file:
 | `doctype/quarterly_review/test_quarterly_review.py` | 5 |
 | `doctype/rock/test_rock.py` | 5 |
 | `doctype/scorecard/test_scorecard.py` | 13 |
-| `doctype/scorecard_report/test_scorecard_report.py` | 12 |
+| `doctype/scorecard_report/test_scorecard_report.py` | 13 |
 | `doctype/team/test_team.py` | 3 |
 | `doctype/to_do/test_to_do.py` | 5 |
 | `doctype/vto/test_vto.py` | 2 |
-| **Integration total** | **67** |
+| **Integration total** | **68** |
 | `eos_core/test_scorecard_engine.py` (unit, frappe-free) | **63** |
 
 Re-derive these with `grep -rc 'def test_'` rather than trusting the table — the documented totals
@@ -238,7 +238,7 @@ end-to-end by a user.
 **`docs/TODO.md` is the only live work queue.** Read it before you start and before you finish.
 
 The **code** for Phases 1–5 exists and is tested, but that is not the same as usable — see the
-`code+tests` / `reachable` distinction in `docs/TODO.md` § Rules. As of 2026-09-28: 4 open logic
+`code+tests` / `reachable` distinction in `docs/TODO.md` § Rules. As of 2026-09-28: 3 open logic
 bugs, permissions at 0%, and no UI at all.
 
 Do not reconstruct the work queue from `docs/roadmap.md` or from this file. Both used to carry their

@@ -39,7 +39,7 @@ Follow them exactly.
 ```bash
 cd /workspace/development/frappe-bench
 bench --site resolv.localhost migrate                      # after ANY *.json edit, incl. permissions
-bench --site resolv.localhost run-tests --app eos_core     # full suite, 130 tests
+bench --site resolv.localhost run-tests --app eos_core     # full suite, 131 tests
 bench --site resolv.localhost run-tests --module eos_core.eos_core.doctype.issue.test_issue   # one module
 ./env/bin/python -c "import sys; sys.path.insert(0,'apps/eos_core'); from eos_core.scorecard_engine import compute_status"  # engine only, no DB
 ```
@@ -51,24 +51,15 @@ bench --site resolv.localhost run-tests --module eos_core.eos_core.doctype.issue
 
 # Queue
 
-## Next up: `BUG-2` → then Block A in order
+## Next up: `BUG-3` → then Block A in order
 
-Block A is five small, verified bugs. **Four remain open**; `BUG-1` (the only one that put wrong
+Block A is five small, verified bugs. **Three remain open**; `BUG-1` (the only one that put wrong
 data in front of a user) is closed. Blocks B (permissions) and C (UI) are where the actual product
 is; nothing built so far is usable by anyone but a developer with a console.
 
 ---
 
-## Block A — Correctness (5 open, 1 done)
-
-### BUG-2 — S3 · `send_report` opens the template without an encoding
-**Status** `TODO` · code+tests ☐ · reachable n/a · **Verified 2026-09-28**
-**Where** `eos_core/eos_core/doctype/scorecard_report/scorecard_report.py:140`
-**Bug** `open(template_path)` with no `encoding=`. The template
-(`eos_core/templates/emails/weekly_scorecard_report.html`) is UTF-8 and contains em-dashes
-(`E2 80 94`). Works on a UTF-8 locale, raises `UnicodeDecodeError` where the platform default is
-not UTF-8.
-**Done when** the call passes `encoding="utf-8"` and a test covers it.
+## Block A — Correctness (4 open, 2 done)
 
 ### BUG-3 — S3 · V/TO with one section populated leaves four empty
 **Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
@@ -361,9 +352,16 @@ Moved here when finished. Never deleted, never renumbered.
 
 | ID | Item | Closed | SHA |
 |---|---|---|---|
-| `BUG-1` | Issue streak ignored the anchor week | 2026-09-28 | *(uncommitted)* |
+| `BUG-1` | Issue streak ignored the anchor week | 2026-09-28 | `08757c4` |
+| `BUG-2` | `send_report` opened the template without an encoding | 2026-09-28 | *(this commit)* |
 | `DOC-1` | `architecture.md` wrongly said `Measurable Group` has no `title_field` | 2026-09-28 | `f6f3e73` |
 | `DOC-2` | `architecture.md` §4 engine table omitted `validate_formula_syntax` | 2026-09-28 | `f6f3e73` |
+
+**`BUG-2`** — `open(template_path, encoding="utf-8")`. The test wraps `builtins.open` with a
+recording pass-through (so the real file is still read and rendered) and asserts the single
+template open carries `encoding="utf-8"`, plus that the em-dash survives into the rendered
+message. Confirmed the test fails against the unfixed call (`AssertionError: None != 'utf-8'`)
+before restoring the fix. Suite: 131/131.
 
 **`BUG-1`** — first re-verified the bug still reproduces by writing the "Done when" test before
 touching the code: an Issue for week `2026-09-14` was stamped `Consecutive Off Track: 2` because the
@@ -384,4 +382,4 @@ neither and shows bare hashes.
 reason for existing (it does not evaluate, which is why `{A}/(1-{B})` is not rejected for dividing by
 zero). §4 now lists 29 of 29 public functions and agrees with `AGENTS.md`.
 
-Next item to land: `BUG-2`.
+Next item to land: `BUG-3`.
