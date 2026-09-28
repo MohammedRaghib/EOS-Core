@@ -96,15 +96,15 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
       linked To-Dos
 - [x] `To Do`: `todo_name`, `status` (`Not Started`/`In Progress`/`Complete`/`Dropped`,
       forward-only), `owner_user`, `team`, `due_date`, optional link to a `Rock`, `To Do Item`
-      child rows, `cascade_todo_transitions` for leadership rollups. Note: `todo_name` is **not
-      enforced as unique** — there is no `unique` index and no Python check; duplicates only
-      collide incidentally via the `format:TD-{todo_name}` autoname
+      child rows, `cascade_todo_transitions` for leadership rollups. `todo_name` carries
+      `unique: 1`, so it is enforced by a real DB unique index (verified: key `todo_name`,
+      `Non_unique=0`); a duplicate raises `frappe.DuplicateEntryError`
 - [x] `Quarterly Review`: `team` × `period_start` (unique), auto-snapshot on insert — pulls the
       team's Rocks (Company-scoped + own-team) with milestone progress, To-Dos due within the
       period (overdue judged against `period_end`), and team Measurables as **On Track / Off Track
       counts** (not green/red) via `build_quarterly_review`
-- [x] Tests: `test_rock.py` (5), `test_to_do.py` (4), `test_vto.py` (2),
-      `test_quarterly_review.py` (4) — all green; full suite 82 tests (35 unit + 47 integration)
+- [x] Tests: `test_rock.py` (5), `test_to_do.py` (5), `test_vto.py` (2),
+      `test_quarterly_review.py` (5) — all green; full suite 82 tests (35 unit + 47 integration)
 
 **Definition of done (met):** all 24 Eos Core DocTypes registered (migrate clean, zero orphans);
 create an Organization → auto-populated `V/TO`, add Rocks with milestones → mark complete cascades
@@ -121,8 +121,8 @@ genuinely incomplete.
 | Item | State |
 |---|---|
 | `aggregate_values` + `EOS Metric.rollup` | `rollup` (Total/Average) is stored but has no effect. Ninety's equivalent is the "Show rollup data as" option governing Month/Quarter/Year "View by" aggregates. |
-| `prorate_for_period` | Never called. Signature is `(value, elapsed, total)` — it does **not** clamp to 0–1 despite `architecture.md` claiming it does, and negative input returns a negative value. Ninety prorates weekly entries into calendar periods, so this is required for rollup parity, not optional. |
-| `Measurable Group.order` | Stored, never read. Ninety: group order carries over to the L10 meeting agenda. |
+| `prorate_for_period` | Never called. Signature is `(value, elapsed, total)` — it does **not** clamp to 0–1 despite `architecture.md` claiming it does, and negative input returns a negative value. Ninety prorates weekly entries into calendar periods **by day** (a week of Oct 27 – Nov 2 gives 5/7 to October, 2/7 to November), so this is required for rollup parity, not optional. |
+| `Measurable Group.order` | Stored, never read. Ninety: group order carries over to the L10 meeting agenda — *"The order you set here carries over to your team's L10 meeting agenda."* |
 
 **No user interface at all**
 

@@ -11,10 +11,10 @@
   "column_break_1",
   "actual_value",
   "target_value",
-   "status",
-   "status_indicator",
-   "trend"
-  ],
+  "status",
+  "status_indicator",
+  "trend"
+ ],
  "fields": [
   {
    "fieldname": "metric",

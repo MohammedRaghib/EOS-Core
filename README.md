@@ -23,10 +23,10 @@ Ninety's data model and workflows built as a native Frappe app.
 - **Phase 4 — Meetings & Reporting: DONE.** `Level 10 Meeting` (agenda + to-dos), `Issue`
   with the IDS workflow, "Make it an Issue" from an off-track measurable, and a weekly
   `Scorecard Report` with snapshot generation, off-track summary, trend detection, and
-  email sending via a Jinja template. 10 tests pass.
+  email sending via a Jinja template. 15 tests pass.
 - **Phase 5 — EOS Operating System: DONE.** `V/TO` (five auto-populated sections), `Rock`
   with milestone-gated completion that cascades linked To-Dos, forward-only `To Do`, and
-  `Quarterly Review` team snapshots (Rocks/To-Dos/Measurables). 15 tests pass.
+  `Quarterly Review` team snapshots (Rocks/To-Dos/Measurables). 17 tests pass.
 - **Test suite: 82 tests** (35 pure-engine unit + 47 integration) — all green. Run them all with
   `bench --site resolv.localhost run-tests --app eos_core`.
 - **No user interface yet.** `public/js` is empty and there are no client scripts, so everything is

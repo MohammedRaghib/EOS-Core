@@ -2,6 +2,8 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from unittest import mock
 
+from eos_core.scorecard_engine import STATUS_INDICATORS
+
 
 class TestScorecardReport(IntegrationTestCase):
 	def setUp(self):
@@ -211,6 +213,10 @@ class TestScorecardReport(IntegrationTestCase):
 			report.send_report()
 		message = sendmail.call_args.kwargs["message"]
 		self.assertIn("Red", message)
+
+	def test_status_indicator_field_options_match_engine(self):
+		field = frappe.get_meta("Scorecard Report Metric").get_field("status_indicator")
+		self.assertEqual(tuple(field.options.split("\n")), STATUS_INDICATORS)
 
 	def tearDown(self):
 		frappe.db.delete("Scorecard Report Metric")

@@ -2,6 +2,7 @@ import datetime
 import unittest
 
 from eos_core.scorecard_engine import (
+	STATUS_INDICATORS,
 	aggregate_values,
 	build_quarterly_review,
 	build_scorecard_report,
@@ -80,6 +81,25 @@ class TestScorecardEngine(unittest.TestCase):
 
 	def test_status_indicator_single_on_track_does_not_clear_red(self):
 		self.assertEqual(compute_status_indicator(["Off Track", "Off Track", "On Track"]), "Yellow")
+
+	def test_status_indicator_only_returns_declared_indicators(self):
+		cases = [
+			[],
+			[None],
+			["On Track"],
+			["Off Track"],
+			["On Track", "Off Track"],
+			["On Track"] * 3,
+			["Off Track"] * 3,
+			["On Track", "On Track", "Off Track"],
+			[None, "On Track", None],
+			["On Track"] * 9,
+		]
+		for statuses in cases:
+			self.assertIn(compute_status_indicator(statuses), STATUS_INDICATORS)
+
+	def test_status_indicators_cover_every_documented_state(self):
+		self.assertEqual(set(STATUS_INDICATORS), {"Green", "Yellow", "Red", "No Recent Data"})
 
 	def test_is_period_complete(self):
 		week = datetime.date(2026, 9, 21)

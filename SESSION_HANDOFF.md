@@ -48,8 +48,8 @@ bench --site resolv.localhost list-doctypes -a
 ```
 
 **Note:** `run-tests --app eos_core` now discovers both categories and runs everything at once
-(43 integration + 26 unit). The old per-module instruction is obsolete. A per-module `--module`
-flag still works and is useful while iterating.
+(47 integration + 35 unit = 82). The old per-module instruction is obsolete. A per-module
+`--module` flag still works and is useful while iterating.
 
 ---
 
@@ -201,7 +201,11 @@ Module constants: `MAX_FORMULA_VARIABLES = 25`, `VARIABLE_PATTERN`, `_SAFE_EXPRE
 **Rollup / "View by":**
 - Ninety has a **"View by"** dropdown: Week (default) / Month / Quarter / Year. Month, Quarter,
   Year are **read-only** aggregates of the weekly data.
-- Weeks spanning multiple periods are **prorated** — and **prorated at the weekly level, not daily**.
+- Weeks spanning multiple periods are **prorated by calendar days, not by whole weeks**. Ninety's
+  own example: a week running Oct 27 – Nov 2 contributes **5/7 to October and 2/7 to November**.
+  (This corrects an earlier note in this file that said "prorated at the weekly level, not daily" —
+  that was wrong. Source: help.ninety.io "Navigating the Data Tool" / "Navigating the Scorecard
+  Tool", both updated 2026-07/2026-08.)
 - Each Measurable has **"Show rollup data as"** = Average | Total, **default Total**, in the Target
   section of its details panel. Percentage-target measurables should be set to Average.
 - The View by filter does **not** convert weekly measurables into monthly/quarterly ones; the four
@@ -270,16 +274,17 @@ health tests).
 
 ### Git state — CLEAN, all work committed
 
-Branch `version-16`, HEAD = **`20cb839`** *"docs: correct test counts and add prioritized gap
-backlog"* (authored by the user, not by me — it swept in the Block 0 + Block 1 changes, 16 files,
-+376/−50). Prior tip was `327504e` (Phase 5).
+Branch `version-16`, HEAD = **`c9fedd2`** *"feat(scorecard): add Ninety status indicator, drop
+compute_health"* — this commit contains Block 2a (11 files, +858/−102). Prior tip was `20cb839`
+*"docs: correct test counts and add prioritized gap backlog"*, before that `327504e` (Phase 5).
 
-**Block 2a is implemented, tested and UNCOMMITTED.** Modified: `AGENTS.md`, `README.md`,
-`docs/architecture.md`, `docs/roadmap.md`, `eos_core/scorecard_engine.py`,
-`eos_core/test_scorecard_engine.py`, `doctype/scorecard_report/scorecard_report.py`,
-`doctype/scorecard_report/test_scorecard_report.py`,
-`doctype/scorecard_report_metric/scorecard_report_metric.json`,
-`templates/emails/weekly_scorecard_report.html`. Untracked: `SESSION_HANDOFF.md`.
+**Block 2a is implemented, tested and COMMITTED as `c9fedd2`.** It was audited after the fact: the
+full suite passes (82/82), all 24 DocTypes show zero schema drift against the live DB, and no
+code references the deleted `compute_health`/`_range_health`/`_health_by_gap`/`SmartMetricStatus`
+symbols. The only defects found in that commit were cosmetic and have since been fixed: a
+3-space indentation slip in `scorecard_report_metric.json`'s `field_order`, and `STATUS_INDICATORS`
+being defined but unused (now guarded by a test asserting the engine constant matches the
+DocType Select options).
 
 **Nothing further should be committed unless the user asks** (project rule).
 
@@ -436,7 +441,7 @@ print(compute_status(100, 0, '<='))"
 
 ### Block 2 — Ninety parity (NEXT; the current task)
 
-**2a — DONE (uncommitted).** Ninety's real status indicator is implemented and wired.
+**2a — DONE (committed as `c9fedd2`).** Ninety's real status indicator is implemented and wired.
 - Deleted `compute_health`, `_range_health`, `_health_by_gap`, `SmartMetricStatus` and their 2 tests.
 - Added `compute_status_indicator(statuses, window=3)`, `is_period_complete(period_start, today)`
   and `completed_period_statuses(entries, today)`, plus constants `STATUS_WINDOW = 3`,
@@ -460,11 +465,16 @@ print(compute_status(100, 0, '<='))"
 - Fix `prorate_for_period` to clamp the ratio to 0–1 and reject negative input; it currently returns
   negatives (`prorate_for_period(100, -3, 7)` → `-42.857`). Doc signature in `architecture.md:387`
   is also wrong.
-- Add `week_overlap_ratio(week_start, period_start, period_end)` → 0–1, because Ninety prorates
-  **at the weekly level**.
+- Add `week_overlap_ratio(week_start, period_start, period_end)` → 0–1, computed as the number of
+  calendar days the 7-day week shares with the period, divided by 7 — this is Ninety's day-level
+  split (Oct 27–Nov 2 → 5/7 for October, 2/7 for November).
 - Add `aggregate_entries_for_period(entries, period_start, period_end, rollup)` → prorate each
-  weekly entry into the period, then `aggregate_values` per `rollup`.
-- Wire into the `Scorecard Report` snapshot so Total/Average reflect it.
+  weekly entry into the period, then `aggregate_values` per `rollup`. Entries with no
+  `actual_value` are skipped; no contributing entries → `None`.
+- **Boundary:** this is a **display-only** aggregate. It must not change `status`,
+  `status_indicator`, `on_track`/`off_track` counts, or the trend count. Ninety: "the Total and
+  Average columns do not affect a period's on-track status", and in a rolled-up view the Goal and
+  Average columns deliberately keep showing the single-period (weekly) value.
 - Correct `architecture.md:387` to the real signature `(value, elapsed, total)`.
 
 **2c — Group order → L10 (roadmap claim was correct, code never read `order`)**
@@ -540,12 +550,12 @@ warrant a quick confirmation, but no decision is currently blocking.
 
 ```bash
 cd /workspace/development/frappe-bench
-git -C apps/eos_core log --oneline -3        # expect 20cb839 at HEAD, clean tree
+git -C apps/eos_core log --oneline -3        # expect c9fedd2 at HEAD
 git -C apps/eos_core status --short          # expect empty
-bench --site resolv.localhost run-tests --app eos_core   # expect 43 + 26, both OK
+bench --site resolv.localhost run-tests --app eos_core   # expect 47 + 35 = 82, both OK
 ```
 
-If the test count differs from 69, re-read `apps/eos_core/SESSION_HANDOFF.md` §4 and the test
+If the test count differs from 82, re-read `apps/eos_core/SESSION_HANDOFF.md` §4 and the test
 files before assuming anything.
 
 ### Then read, in this order
@@ -561,20 +571,24 @@ files before assuming anything.
 
 ### Immediate task
 
-**Block 2a is done** (implemented, wired, tested at 82 green, uncommitted). **Start Block 2b** —
-proration + rollup, i.e. Ninety's "View by":
+**Block 2a is done and committed** (`c9fedd2`); the tree was audited clean afterwards — 82/82
+tests green, 0 schema drift across all 24 DocTypes, no dangling references to the deleted
+`compute_health` family. **Start Block 2b** — proration + rollup, i.e. Ninety's "View by":
 
 1. Fix `prorate_for_period(value, elapsed, total)`: clamp the ratio to 0–1 and reject negative
    `elapsed` (it currently returns negatives, e.g. `prorate_for_period(100, -3, 7)` → `-42.857`).
    Add unit tests for the clamp and the negative case.
-2. Add `week_overlap_ratio(week_start, period_start, period_end)` → 0–1, because Ninety prorates at
-   the **weekly** level, not daily.
+2. Add `week_overlap_ratio(week_start, period_start, period_end)` → 0–1, computed from the
+   **calendar-day** overlap of the 7-day week with the period ÷ 7. Ninety's documented example:
+   a week of Oct 27 – Nov 2 contributes **5/7 to October and 2/7 to November**.
 3. Add `aggregate_entries_for_period(entries, period_start, period_end, rollup)` → prorate each
-   weekly entry into the period, then `aggregate_values` per `rollup`.
-4. Wire it into the `Scorecard Report` snapshot so Total/Average columns reflect the period. Mind
-   that `Scorecard Report` is currently week-scoped — decide whether this needs a new
-   `period_start`/`period_end` field (JSON change → `bench migrate`) or a separate read-only
-   aggregate block.
+   weekly entry into the period, then `aggregate_values` per `rollup`. Skip entries with no
+   `actual_value`; return `None` when nothing contributes.
+4. Wire it in as a **display-only** aggregate. It must **not** change `status`, `status_indicator`,
+   the `on_track`/`off_track` summary, or the trend count. In a rolled-up view Ninety deliberately
+   keeps showing the single-period (weekly) Goal and Average values, so do not retro-fit these
+   into the existing `total_metrics`/`on_track`/`off_track` fields. `Scorecard Report` is
+   week-scoped, so decide between a read-only aggregate block and a new period projection.
 5. Update the `prorate_for_period` row of the engine table in `docs/architecture.md` — it currently
    documents the wrong signature.
 6. Then **2c**: sort the report snapshot and the L10 "Scorecard Review" agenda by

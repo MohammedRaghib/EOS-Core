@@ -96,7 +96,7 @@ apps/eos_core/
 | To-Dos | `To Do` / `To Do Item` | DONE — forward-only status, `cascade_todo_transitions` |
 | Quarterly review | `Quarterly Review` | DONE — team × period snapshot of Rocks/To-Dos/Measurables |
 
-Tests: `bench --site resolv.localhost run-tests --app eos_core` runs the whole suite — 43
+Tests: `bench --site resolv.localhost run-tests --app eos_core` runs the whole suite — 47
 integration + 35 pure-engine unit = **82 tests** (needs `allow_tests true`, already enabled on
 `resolv.localhost`). To run a single module, add
 `--module eos_core.eos_core.doctype.rock.test_rock`.
@@ -138,7 +138,9 @@ in that roadmap is the real work queue — in order:
      `Scorecard Report Metric.status_indicator`. The non-Ninety 10%-tolerance `compute_health`
      was deleted.
    - **2b TODO** — `prorate_for_period` + `aggregate_values` + `rollup` are one feature (Ninety's
-     "View by" Week/Month/Quarter/Year aggregation, prorated at the weekly level).
+     "View by" Week/Month/Quarter/Year aggregation). Weeks that straddle a period boundary are
+     split **by calendar day**, per Ninety: a week of Oct 27 – Nov 2 contributes 5/7 to October
+     and 2/7 to November. The aggregate is display-only and must not affect on-track status.
    - **2c TODO** — `Measurable Group.order` must feed the L10 agenda order.
 3. **Block 3 — Phase 6 Permissions & Roles** (Owner/Admin/Coach/Manager/Team Member/Observer →
    Frappe roles and DocPerm blocks). Ninety's matrix is published in its help centre.
