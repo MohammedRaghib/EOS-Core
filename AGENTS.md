@@ -53,33 +53,46 @@ Rules for a session that starts work:
 1. **Select the top unblocked `TODO` item** by the queue's own rules: work the blocks in order,
    within a block S1 first, and never start an item whose stated dependency is still open. Severity
    is triage, not order, and neither is a licence to reorder the queue.
-2. **If the item has an execution plan, follow it.** Read the whole file first, then continue the
+2. **Check the context budget before picking a task, not during one.** Compaction fires at 70% of the
+   window, and that is a cliff rather than a slope: whatever was in flight in the last 30% is what
+   gets summarised away, and it will be the half-finished edit. So **start a task at 30% or above,
+   and do not start one that cannot finish below 70%.** That is a ~40%-of-window budget, which fits a
+   DocType-level task from the plans and does not fit `UI-1.2`. When in doubt, **one task per
+   session** — five tasks in a session means five sets of file reads compounding, and the fifth is
+   the one that dies. Start fresh instead; the plan's `## Current Task` and the last commit are the
+   handoff, and a fresh session at 0% can do one task properly where a chained one cannot.
+3. **If the item has an execution plan, follow it.** Read the whole file first, then continue the
    task named in its `## Current Task` section. That section is the resume point — a new session
-   should never have to guess which task was in flight.
-3. **If the item has no execution plan, it is small enough to do in one session** straight from its
+   should never have to guess which task was in flight. Do not re-read `roadmap.md` or
+   `architecture.md` up front; read the parts the current task actually touches.
+4. **If the item has no execution plan, it is small enough to do in one session** straight from its
    `TODO.md` text. Do not create a plan for it.
-4. **Work one task at a time and finish it before starting the next.** A half-finished task plus a
+5. **Work one task at a time and finish it before starting the next.** A half-finished task plus a
    half-finished second one is what forces context compaction, which is exactly what the plans exist
    to prevent.
-5. **Do not deliberately approach the context limit.** If a task is going to need one, **stop and
+6. **Do not deliberately approach the context limit.** If a task is going to need one, **stop and
    split it first** — add `UI-1.4a` / `UI-1.4b` to the plan, give each its own acceptance criteria
    and verification, point `## Current Task` at the first, and record why under `## Discovered
    Issues`. Splitting is a normal outcome, not a failure. Carrying a large task into compaction is.
-6. **Persist state as you go.** After each task: set its `Status` to `DONE`, paste the real
+7. **Commit at every task boundary**, even a partial one, with the task ID in the message
+   (`UI-1.2: ...`). This is the strongest of all these rules and it depends on nobody remembering
+   anything: a commit is ground truth that survives compaction, so the next session can reconstruct
+   where it is from `git log` alone rather than trusting a plan file to be accurate.
+8. **Persist state as you go.** After each task: set its `Status` to `DONE`, paste the real
    verification output into `## Completed`, and advance `## Current Task`. A future session must be
    able to resume from the file alone, with no memory of this one.
-7. **Run the task's verification before marking it done, and paste the result.** "Should work" is
+9. **Run the task's verification before marking it done, and paste the result.** "Should work" is
    not a result. Where a task changes behaviour, confirm the test fails without the change. A
    `*.json` edit — including a `permissions` block — needs `bench migrate` before the tests mean
    anything.
-8. **Mark a queue item complete only after every clause of its "Done when" is verified**, with the
+10. **Mark a queue item complete only after every clause of its "Done when" is verified**, with the
    run's real output as evidence. `code+tests` and `reachable` are separate boxes and both must be
    ticked. If only part of an item landed, say which part in `TODO.md` rather than closing the item.
-9. **Do not start unrelated work.** Found a bug, a stale doc or a missing item while working? Give it
+11. **Do not start unrelated work.** Found a bug, a stale doc or a missing item while working? Give it
    a new `TODO.md` ID and record it under `## Discovered Issues` in the plan. Fixing it "while I am in
    here" is how a session ends up with a commit that mixes two things. The one exception is a
    prerequisite the plan itself names.
-10. **Never re-open a settled decision.** The five locked Ninety-parity decisions are in § Ground
+12. **Never re-open a settled decision.** The five locked Ninety-parity decisions are in § Ground
     rules. Where a plan's *Decisions to settle* is a real open question, resolve it from Ninety's
     documented behaviour and write the answer down — do not design it from the tidier option.
 

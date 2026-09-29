@@ -66,6 +66,21 @@ file, give each its own acceptance criteria and verification, set `## Current Ta
 one, and record the reason under `## Discovered Issues`. Splitting is a normal outcome, not a
 failure.
 
+### The context budget
+
+Compaction fires at 70% of the context window, and it is a **cliff, not a slope** — whatever was in
+flight in the last 30% is what gets summarised away, and it will be the half-finished edit. So:
+
+- **Start a task at 30% or above, and do not start one that cannot finish below 70%.**
+- That is roughly 40% of the window. A DocType-level task here fits. `UI-1.2` does not.
+- **One task per session** when in doubt. Five tasks in a session means five sets of file reads
+  compounding, and the fifth is the one that dies.
+- Delegate wide reads — whole DocType JSONs, whole test files, `architecture.md` sections — to a
+  subagent and take the `file:line` answer. The read is what fills the window, not the edit.
+- **Commit at every task boundary**, even a partial one, with the task ID in the message. This is
+  what actually makes a post-compaction session safe: the next session reconstructs where it is
+  from `git log` alone instead of trusting this file to be accurate.
+
 ### Good task
 
 - Add the `archived` Check field to `To Do`, `Issue` and `Rock`, and register the patch.
