@@ -1,5 +1,8 @@
 # Execution plans — AI-managed decomposition of `docs/TODO.md`
 
+**Starting a new session? Copy the prompt in [`RESUME.md`](RESUME.md).** It hardcodes no task ID, so
+the same text works after any session.
+
 `docs/TODO.md` is the **work queue**: it says what is outstanding, at what severity, and in what
 order. This directory says **how a single large item is built** without a context window running
 out. The two are deliberately separate — a queue item is never re-described here, it is only

@@ -64,7 +64,8 @@ Rules for a session that starts work:
 3. **If the item has an execution plan, follow it.** Read the whole file first, then continue the
    task named in its `## Current Task` section. That section is the resume point — a new session
    should never have to guess which task was in flight. Do not re-read `roadmap.md` or
-   `architecture.md` up front; read the parts the current task actually touches.
+   `architecture.md` up front; read the parts the current task actually touches. The canonical
+   opening prompt for a fresh session is in `docs/execution/RESUME.md`.
 4. **If the item has no execution plan, it is small enough to do in one session** straight from its
    `TODO.md` text. Do not create a plan for it.
 5. **Work one task at a time and finish it before starting the next.** A half-finished task plus a
