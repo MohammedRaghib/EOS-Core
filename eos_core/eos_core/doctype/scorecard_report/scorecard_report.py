@@ -133,6 +133,7 @@ class ScorecardReport(Document):
 
 	@frappe.whitelist()
 	def send_report(self):
+		self.check_permission("email")
 		recipient = self.recipient_user or self._default_recipient()
 		if not recipient:
 			frappe.throw(f"No recipient configured for team {frappe.bold(self.team)}.")

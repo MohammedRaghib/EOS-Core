@@ -131,13 +131,33 @@ after_migrate = "eos_core.roles.ensure_roles"
 # -----------
 # Permissions evaluated in scripted ways
 
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+permission_query_conditions = {
+	"EOS Metric": "eos_core.permissions.team_query_condition",
+	"Issue": "eos_core.permissions.team_query_condition",
+	"Level 10 Meeting": "eos_core.permissions.team_query_condition",
+	"Measurable Group": "eos_core.permissions.team_query_condition",
+	"Player": "eos_core.permissions.team_query_condition",
+	"Quarterly Review": "eos_core.permissions.team_query_condition",
+	"Rock": "eos_core.permissions.team_query_condition",
+	"Scorecard": "eos_core.permissions.team_query_condition",
+	"Scorecard Report": "eos_core.permissions.team_query_condition",
+	"Team": "eos_core.permissions.team_query_condition",
+	"To Do": "eos_core.permissions.team_query_condition",
+}
+
+has_permission = {
+	"EOS Metric": "eos_core.permissions.has_permission",
+	"Issue": "eos_core.permissions.has_permission",
+	"Level 10 Meeting": "eos_core.permissions.has_permission",
+	"Measurable Group": "eos_core.permissions.has_permission",
+	"Player": "eos_core.permissions.has_permission",
+	"Quarterly Review": "eos_core.permissions.has_permission",
+	"Rock": "eos_core.permissions.has_permission",
+	"Scorecard": "eos_core.permissions.has_permission",
+	"Scorecard Report": "eos_core.permissions.has_permission",
+	"Team": "eos_core.permissions.has_permission",
+	"To Do": "eos_core.permissions.has_permission",
+}
 
 # Document Events
 # ---------------

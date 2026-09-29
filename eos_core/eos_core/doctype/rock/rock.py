@@ -2,6 +2,7 @@ import frappe
 from frappe.model.document import Document
 
 from eos_core.eos_core.doctype.to_do.to_do import cascade_todo_transitions
+from eos_core.permissions import validate_content_owner
 from eos_core.scorecard_engine import rollup_todo_summary
 
 ROCK_STATUSES = ("Not Started", "In Progress", "Complete", "Dropped")
@@ -23,6 +24,7 @@ class Rock(Document):
 		existing = frappe.db.get_value("Rock", {"rock_name": self.rock_name}, "name")
 		if existing and (self.is_new() or existing != self.name):
 			frappe.throw(f"A rock named {frappe.bold(self.rock_name)} already exists.")
+		validate_content_owner(self, "owner_user", "Rock")
 
 	@property
 	def progress(self):

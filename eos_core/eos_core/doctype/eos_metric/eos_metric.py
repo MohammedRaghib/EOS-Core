@@ -1,6 +1,7 @@
 import frappe
 from frappe.model.document import Document
 
+from eos_core.permissions import validate_content_owner, validate_data_entry_only
 from eos_core.scorecard_engine import (
 	MAX_FORMULA_VARIABLES,
 	compute_status,
@@ -14,7 +15,9 @@ RANGE_OPERATORS = ("Inside min/max", "Outside min/max")
 
 class EOSMetric(Document):
 	def validate(self):
+		validate_data_entry_only(self)
 		self.validate_owner_team()
+		self.validate_owner_content_role()
 		self.validate_range_target()
 		self.ensure_scorecard()
 		self.validate_group()
@@ -30,6 +33,9 @@ class EOSMetric(Document):
 					self.min_value,
 					self.max_value,
 				)
+
+	def validate_owner_content_role(self):
+		validate_content_owner(self, "owner", "Measurable")
 
 	def validate_owner_team(self):
 		if not self.team or not self.owner:

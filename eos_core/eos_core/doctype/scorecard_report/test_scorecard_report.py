@@ -232,6 +232,44 @@ class TestScorecardReport(IntegrationTestCase):
 		self.assertEqual(template_calls[0].get("encoding"), "utf-8")
 		self.assertIn("—", sendmail.call_args.kwargs["message"])
 
+	def test_send_report_is_refused_without_the_email_permission(self):
+		team = self._seed_metrics()
+		report = frappe.get_doc(
+			{
+				"doctype": "Scorecard Report",
+				"team": team.name,
+				"week_start_date": "2026-09-07",
+			}
+		).insert()
+		observer = "sro.observer@example.com"
+		frappe.get_doc(
+			{
+				"doctype": "User",
+				"name": observer,
+				"email": observer,
+				"first_name": "Observer",
+				"roles": [{"role": "Observer"}],
+			}
+		).insert(ignore_permissions=True)
+		frappe.cache.hdel("roles", observer)
+		frappe.get_doc(
+			{
+				"doctype": "Player",
+				"player_name": "SR Observer",
+				"user": observer,
+				"team": team.name,
+			}
+		).insert()
+		with self.set_user(observer), mock.patch.object(frappe, "sendmail") as sendmail:
+			report = frappe.get_doc("Scorecard Report", report.name)
+			report.check_permission("read")
+			with self.assertRaises(frappe.PermissionError):
+				report.send_report()
+			sendmail.assert_not_called()
+		self.assertEqual(
+			frappe.db.get_value("Scorecard Report", report.name, "status"), "Draft"
+		)
+
 	def test_status_indicator_uses_completed_periods_only(self):
 		team = self._seed_metrics()
 		report = frappe.get_doc(
