@@ -122,7 +122,7 @@ erDiagram
   its `owner` (a User) to have a `Player` record in that team. Metrics without `team` are
   organization-wide and skip the rule.
 
-## 3h. Roles (Phase 6 — roles exist, permissions not yet mapped)
+## 3h. Roles (Phase 6 — implemented, except the owner-field gap)
 
 Ninety's six roles are created as Frappe `Role` records with `is_custom = 1` and `desk_access = 1`:
 
@@ -141,9 +141,111 @@ Ninety's six roles are created as Frappe `Role` records with `is_custom = 1` and
 - The names are kept verbatim from Ninety even though `Owner`, `Admin` and `Manager` are generic and
   could collide with a role another app introduces later. Parity wins; `tabRole` currently has no
   such collision (`Administrator` and `* Manager` roles exist, but not bare `Manager`).
-- **Existing roles are untouched.** No DocType carries a DocPerm for these yet — that is `PERM-2`.
-  Every DocType is still `System Manager` only, so creating the roles changes no behaviour until
-  `PERM-2` lands. Treat "the role exists" as necessary setup, not as an implemented permission.
+- **A role is account-wide and is granted per user, never per team.** Ninety is explicit:
+  *"Roles in Ninety are company-wide, not team-specific. A user cannot be an Admin on one team and
+  an Observer on another."* So a `Player` row never carries a role; the visibility half of the model
+  is seats, and the capability half is the role, and they are multiplied at read time.
+
+### Visibility: roles × seats
+
+A DocPerm row says *what* a role may do. It cannot say *where*, so team scope is a separate layer in
+`eos_core/permissions.py`, wired in `hooks.py` as `permission_query_conditions` and `has_permission`
+on the 11 team-scoped DocTypes.
+
+| | `Owner` | `Admin` | `Coach` | `Manager` | `Team Member` | `Observer` |
+|---|---|---|---|---|---|---|
+| Sees | all teams | all teams | all teams | assigned seats | assigned seats | assigned seats |
+| Owns Measurables | yes | yes | **no** | yes | yes | no |
+| Owns Rocks | yes | yes | **no** | yes | yes | no |
+
+A user's teams are the `Player` rows where `user` matches, per §3b — the same link pair that
+`validate_owner_team` already resolves, so there is one source of truth. A Frappe User Permission on
+`Team` was considered and rejected: it holds a single link value per user per DocType and so cannot
+express "Many Ninety users are members of multiple teams", and it would have competed with `Player`.
+
+Two rules that are easy to get backwards:
+
+- **An unsaved document is not scope-checked.** `has_permission` declines to judge a new doc, so
+  `create` is decided by DocPerm alone. Otherwise a Manager could not create a `Team`, because the
+  new document belongs to no team yet. They then have to be added as a `Player` to see it.
+- **A team-less row is not automatically private.** `EOS Metric` and `Issue` with no `team` are
+  organization-wide (§3c), as is a `Rock` with `scope = "Company"`. `To Do` and `Player` have no such
+  notion, so a team-less row of those is visible to its **owner** plus the company-wide roles only.
+  `Measurable Group` has no team column and is scoped through its `Scorecard`.
+
+### Capability: the DocPerm matrix
+
+Every one of the 13 standard DocTypes carries a DocPerm block for each of the six roles, next to
+`System Manager`. Child tables carry none and inherit from the parent. Several DocPerm columns are
+granted to **none** of the six: `submit`, `cancel`, `amend`, `import`, `if_owner`, `select` and
+`print` are all `0` on every row (verified live). `email` is `1` on exactly one row per role —
+`Scorecard Report`, and only for `Owner`/`Admin`/`Coach`/`Manager`, which is what
+`ScorecardReport.send_report` checks. `share` is `0` for `Team Member` and `Observer` everywhere,
+and also for `Manager` on `Organization`, `Player`, `Team` and `VTO` — none of the six can widen a
+document's visibility past the scoping layer that confines them.
+
+| DocType | create / write / delete granted to | Basis |
+|---|---|---|
+| `Organization` | Owner, Admin, Coach | company setup is not a team action |
+| `Team`, `Player` | + Manager | Ninety: Managers invite users and create teams |
+| `VTO`, `Scorecard` | + Manager | team and company scorecard settings |
+| `EOS Metric` | create + Manager; write + Team Member; delete + Manager | data entry without settings changes |
+| `Measurable Group` | + Manager | Ninety's Groups article; `Coach` decided as Admin, see below |
+| `Issue`, `Level 10 Meeting`, `To Do` | + Team Member | team-collaborative workflows |
+| `Rock` | create/write + Team Member; delete + Manager | Team Members own Rocks |
+| `Scorecard Report`, `Quarterly Review` | + Manager | snapshot surfaces are a settings action |
+
+`Rock` delete stops at Manager while create/write goes down to Team Member. **That is a deviation,
+not a narrowing**: Ninety publishes `Delete a Rock` as allowed for every role but Observer, so Team
+Member should have it. Tracked as `PERM-12`.
+
+Two rows above are **inference, not citation**, and are recorded as such:
+
+- `Issue`, `Level 10 Meeting` and `To Do` are mapped to "Team Member and above" by analogy with the
+  verified Measurable matrix. Ninety publishes no per-DocType page for them.
+- `Coach` is granted `Measurable Group` management. Ninety's Groups article lists Owner, Admin,
+  Manager, Team Member and Observer and **omits Coach entirely** — a documentation gap. It was
+  resolved by Ninety's own pattern elsewhere: a Coach has Admin capabilities "with one exception:
+  they cannot be assigned items", and a group is not an item. Revisit if Ninety says otherwise.
+
+**Five rows are narrower than Ninety, and are not yet reconciled (`PERM-12`).** Ninety's roles
+article — ordered Owner | Admin | Manager | Managee | Observer | Implementer — grants Team Members
+`Remove Measurables` and `Delete a Rock`, and grants Observers `Delete an Issue`, `Delete a To-Do`
+and `Archive a To-Do`. We grant none of those five. The first is the interesting one: Ninety scopes it
+to KPIs the Team Member owns (its own footnote: *Team Members cannot → Delete Measurables owned by
+others*), so a bare DocPerm `delete` row would over-grant and is explicitly **not** the fix — it needs
+an ownership check, which needs `PERM-9`.
+
+### The three rules a DocPerm cannot express
+
+Data entry in this app is the `entries` child table of `EOS Metric`, and Frappe gates child rows on
+the **parent's** `write`. So the grant a Team Member needs in order to enter data also hands them
+write on every field of the Measurable. Ninety reserves some of those fields: *"'Edit Measurable
+settings' refers to a Measurable's title, unit type, and ownership — locked to Manager and above."*
+Three guards in `eos_core/permissions.py` close that gap:
+
+1. `validate_data_entry_only` refuses any change outside `entries` to a user who cannot manage
+   metrics. It must run **first** in `EOSMetric.validate`, before `validate_range_target` rewrites a
+   `0` `min_value`/`max_value` to `None` — that normalisation would otherwise read as a settings change
+   and throw on every data entry. **This is broader than Ninety**: the locked set is title, unit type
+   and ownership, whereas the guard also blocks the goal fields, `description`, `group` and `archived`,
+   all of which Ninety lets a Team Member change. Narrowing it is `PERM-12`.
+2. `validate_content_owner` refuses a `Coach` or `Observer` as the owner of a Measurable or a Rock.
+   Ninety repeats the rule for Measurables, Rocks, To-Dos, Issues and Headlines; a DocPerm cannot see
+   *which user* a field points at.
+3. `ScorecardReport.send_report` checks the `email` permission itself. Frappe's `run_doc_method`
+   only checks **read**, so a read-only role can invoke any whitelisted method on a document it can
+   see — and this one sends mail before its own save would fail on the missing write.
+
+### The known gap: `EOS Metric.owner` is not a business field
+
+`owner` collides with Frappe's document owner, which is in `meta.get_set_only_once_fields()`. Frappe
+sets it to the creating user and refuses any later change. So a Measurable's owner is always its
+creator, which means a `Team Member` — who has no `create` on `EOS Metric` — can never own one, and
+there is nothing for a Measurable Manager's "Reassign" to act on. `validate_owner_team` is therefore
+really a rule about who may create a Measurable on a team. `Rock` is unaffected: its business field
+is `owner_user`, which is free. Tracked as `PERM-9`; the fix is a separate owner field, not a rename
+of `owner`.
 
 ## 3c. Scorecards, Groups & Formulas (Phase 3 — implemented)
 

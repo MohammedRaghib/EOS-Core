@@ -115,7 +115,7 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
       period (overdue judged against `period_end`), and team Measurables as **On Track / Off Track
       counts** (not green/red) via `build_quarterly_review`
 - [x] Tests: `test_rock.py` (5), `test_to_do.py` (5),
-      `test_quarterly_review.py` (5), `test_vto.py` (4) — all green; full suite 150 tests (63 unit + 87 integration)
+      `test_quarterly_review.py` (5), `test_vto.py` (4) — all green; full suite **237** tests (63 unit + 174 integration) as of 2026-09-29
 
 **Definition of done (met):** all 24 Eos Core DocTypes registered (migrate clean, zero orphans);
 create an Organization → auto-populated `V/TO`, add Rocks with milestones → mark complete cascades
@@ -225,10 +225,15 @@ cannot recur.
       Ninety's "empty periods count against the calculation". Previously gaps were invisible and a
       metric with holes could wrongly read `Green`.
 
-## Phase 6 — Permissions & Roles `[ ]`
+## Phase 6 — Permissions & Roles `[~]`
 
-Currently **zero**: every DocType is System Manager only. Map Ninety's six roles onto Frappe roles
-and add per-DocType DocPerm blocks.
+**Landed 2026-09-29 (commit `83a2db8`):** the six roles now carry DocPerm blocks on all 13 standard
+DocTypes, a team-scoping layer confines `Manager` / `Team Member` / `Observer` to their `Player`
+seats, and three field-level guards cover what a DocPerm cannot express. Open: the Measurable
+Manager surface, the reorder rule, per-team worksheet settings, `PERM-9` — `EOS Metric.owner` is
+Frappe's immutable creator field, so a Measurable's owner can never be reassigned and a Team Member
+can never own one — and `PERM-12`, found by re-reading Ninety's roles tables row by row, where five
+grants are narrower than Ninety publishes.
 
 Ninety's capability matrix:
 
@@ -236,22 +241,43 @@ Ninety's capability matrix:
 |---|---|---|---|---|---|
 | **Owner** | Company-wide | yes | yes | yes | Measurable Manager |
 | **Admin** | Company-wide | yes | yes | yes | Measurable Manager |
-| **Coach** (Implementer) | Company-wide | no | yes | yes | Measurable Manager |
+| **Coach** (Implementer) | Company-wide | no† | yes | yes | Measurable Manager |
 | **Manager** | no | yes | yes | yes | no Measurable Manager |
 | **Team Member** | no | reorder within a group only | no | yes | no Measurable Manager |
 | **Observer** | no | no | no | no (view only) | no Measurable Manager |
 
 - [x] Create the six Frappe roles: Owner, Admin, Coach, Manager, Team Member, Observer (`PERM-1`)
-- [ ] DocPerm blocks per DocType reflecting the matrix above (`PERM-2`)
-- [ ] **Team Members may reorder measurables within a group, even measurables they do not own** (`PERM-3`)
-- [ ] Only Owner / Admin / Coach see the Measurable Manager (`PERM-4`)
+- [x] DocPerm blocks per DocType reflecting the matrix above (`PERM-2`) — per-DocType table in
+      `architecture.md` §3h; `archive`/`unarchive` withheld from all six until the Measurable Manager
+      exists
+- [x] Team-scoped row visibility via `permission_query_conditions` + `has_permission` (`PERM-6`) —
+      the layer `PERM-2` depended on, built first; scope is `Player.user` + `Player.team`, **not** a
+      Frappe User Permission
+- [x] Team Members may enter data without touching Measurable settings (`PERM-7`) — a field-level
+      guard, because Frappe gates child rows on the parent's `write`
+- [x] `Coach` and `Observer` may not own a Measurable or a Rock (`PERM-8`) — a validation, not a
+      DocPerm
+- [x] `send_report` gated on `email`, not reachable by a read-only role (`PERM-10`)
+- [x] Decide `Coach`'s group access, which Ninety's docs omit (`PERM-11`) — granted, as Admin
+- [ ] **Team Members may reorder measurables within a group, even measurables they do not own** (`PERM-3`) — DocPerm half is in place; needs the grid (`UI-1`) and a reorder carve-out in `PERM-7`'s guard
+- [ ] Only Owner / Admin / Coach see the Measurable Manager (`PERM-4`) — DocPerm half is in place; needs the surface
+- [ ] Worksheet-level column visibility and status-colour toggles (team-level settings) (`PERM-5`)
+- [ ] A Measurable's owner is reassignable and distinct from its creator (`PERM-9`) — schema change
+- [ ] Reconcile five grants with Ninety's published tables (`PERM-12`, S1) — Team Member is missing
+      `Remove Measurables` and `Delete a Rock`; Observer is missing `Delete an Issue`,
+      `Delete a To-Do` and `Archive a To-Do`. `Remove Measurables` needs an ownership check, not a
+      DocPerm row, and is gated on `PERM-9`
 
 > **The matrix above is not all DocPerm work.** Verified 2026-09-28: a DocPerm row cannot scope a
 > role to *some* teams. Of the six columns, only **Data entry** is a plain DocPerm grant; the other
-> five need a `permission_query_conditions` layer. The team-scoping gap is `PERM-6` in `TODO.md`, and
-> it blocks `PERM-2`, because adding the six roles with no scoping layer makes every team's data
-> visible company-wide to all six roles.
-- [ ] Worksheet-level column visibility and status-colour toggles (team-level settings)
+> five need a `permission_query_conditions` layer. Both halves are now implemented — the grants and
+> the scoping — and the 66 generated tests in `eos_core/test_permissions.py` pin one per role per
+> DocType. What the matrix still does not describe is everything with no UI, which is why `PERM-3`
+> and `PERM-4` are blocked on `UI-1` rather than on permissions.
+>
+> † Ninety's Groups article lists Owner, Admin, Manager, Team Member and Observer and omits Coach
+> entirely. Resolved as Admin, since Ninety describes a Coach as having Admin capabilities "with one
+> exception: they cannot be assigned items" and a group is not an item. Recorded, not assumed.
 
 ## Phase 7 — Integrations, Bulk UX & Ninety parity `[ ]`
 

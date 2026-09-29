@@ -26,13 +26,20 @@ Ninety's data model and workflows built as a native Frappe app.
 - **Phase 5 — EOS Operating System: DONE.** `V/TO` (five auto-populated sections), `Rock`
   with milestone-gated completion that cascades linked To-Dos, forward-only `To Do`, and
   `Quarterly Review` team snapshots (Rocks/To-Dos/Measurables).
-- **Phase 6 (permissions) is started but not usable.** The six Ninety roles (`Owner`, `Admin`, `Coach`,
-  `Manager`, `Team Member`, `Observer`) now exist, created by `after_migrate` so a new site gets them
-  too. No DocType grants them access yet — every DocType is still System Manager only.
+- **Phase 6 (permissions): the role model is built; the UI around it is not.** The six Ninety roles
+  (`Owner`, `Admin`, `Coach`, `Manager`, `Team Member`, `Observer`) are created by `after_migrate`,
+  all 13 standard DocTypes grant them Ninety's capability matrix, and `eos_core/permissions.py`
+  confines `Manager`/`Team Member`/`Observer` to the teams where they hold a `Player` seat while
+  `Owner`/`Admin`/`Coach` are company-wide. Still missing: the Measurable Manager surface, the
+  reorder-within-a-group rule, per-team worksheet settings, a reassignable Measurable owner
+  (`PERM-9` — `EOS Metric.owner` is Frappe's immutable creator field), and a pass that lines five
+  narrower-than-Ninety grants up with the published tables (`PERM-12`).
 - **Phase 7 (integrations, bulk UX, remaining Ninety parity) is not started.**
 - **Open work is tracked in [`docs/TODO.md`](docs/TODO.md)** — the single live queue, with stable
-  item IDs. As of 2026-09-28 Block A is closed (0 open logic bugs), permissions at 0%, and no UI.
-- **Test suite: 144 tests** (63 pure-engine unit + 81 integration) — all green. Run them all with
+  item IDs. As of 2026-09-29: 0 open logic bugs, permissions mostly built (5 items open in Block B,
+  including `PERM-12` — five places where our grants are narrower than Ninety's published tables),
+  and no UI.
+- **Test suite: 237 tests** (63 pure-engine unit + 174 integration) — all green. Run them all with
   `bench --site resolv.localhost run-tests --app eos_core`.
 - **No user interface yet.** `public/js` is empty and there are no client scripts, so everything is
   currently reachable only through the default Frappe forms or the console.
