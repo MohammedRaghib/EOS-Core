@@ -146,10 +146,12 @@ not another's. This requires the role→team assignment to be representable — 
 
 ---
 
-## Block C — Phase 7: UI (6 items, 0% done — the largest gap)
+## Block C — Phase 7: UI (7 items, 0% done — the largest gap)
 
 `eos_core/public/` contains only `.gitkeep`. `hooks.py` is pure boilerplate: no `doctype_js`, no
-`doc_events`. Four whitelisted endpoints exist and nothing in the UI calls them.
+`doc_events`. Four whitelisted endpoints exist and nothing in the UI calls them — only two of them
+have an item below (`UI-2` for the not-yet-whitelisted `create_issue_from_metric`, `UI-3` for
+`get_rollup_view`); the other two are `UI-7`.
 
 ### UI-1 — S2 · Scorecard grid (the core Ninety screen)
 **Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
@@ -184,6 +186,35 @@ the per-team override of company defaults (depends on `PERM-5`).
 ### UI-6 — S3 · Bulk UX
 **Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
 **Scope** import/export XLSX/CSV, bulk paste, bulk archive / duplicate / share.
+
+### UI-7 — S2 · Buttons for the three built endpoints nothing can reach
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · *found 2026-09-28 while
+answering "is Phase 5 done?", not in any prior list*
+**Where** `rock.mark_complete`, `rock.get_rock_summary` (`rock/rock.py`),
+`scorecard_report.send_report` (`scorecard_report/scorecard_report.py`)
+**Problem** all three are `@frappe.whitelist()` and covered by tests, but no user can invoke any of
+them from the browser — only the console or the API. Verified 2026-09-28: all three DocTypes declare
+`"actions": []` in their `*.json`, `hooks.py` sets no `doctype_js`, and `public/js` is an empty
+directory (`public/` holds only `.gitkeep`). The only mentions of `get_rock_summary` and `send_report`
+anywhere in this queue were incidental (a footnote in `DEBT-11` and the `BUG-2` Done row), which is
+how they went unqueued.
+This makes one of `roadmap.md` Phase 5's own definition-of-done lines true only of the code path and
+not of the product: *"add Rocks with milestones → mark complete cascades To-Dos"*. The cascade works;
+there is no button that calls it. `mark_complete` is the headline Rock workflow.
+**Scope** the smallest possible UI in the project — one form button per endpoint. No grid, no page,
+no new DocType. Independent of `PERM-2`/`UI-1` and safe to land first in this block, because it needs
+no role-specific column visibility.
+**How** two routes, and the choice matters for reproducibility. A **Client Script** record
+(`view: Form`, added from the desk) is the quickest but is *data*, so it would not live in git and a
+fresh site would not have the buttons. A `doctype_js` file registered per DocType is app code and
+reproduces on migrate. Prefer the second for anything meant to be a product; the first is fine for a
+throwaway demo.
+**Done when** a user can complete a Rock from its form (milestone gating and the To-Do cascade both
+observable), read the Rock's summary from the form, and send a weekly `Scorecard Report` by email.
+A test that the button exists in the app's own files is *not* sufficient on its own — record a manual
+browser pass too, because an assertion cannot prove a button is clickable.
+**Note** `DEBT-11` (`Rock.progress` returning `int` rather than `float`) surfaces in this surface
+because `get_rock_summary` serialises that value straight to JSON. Fix it with, or before, this item.
 
 ---
 

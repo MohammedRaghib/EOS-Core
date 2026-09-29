@@ -121,6 +121,12 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
 create an Organization → auto-populated `V/TO`, add Rocks with milestones → mark complete cascades
 To-Dos; `Quarterly Review` snapshots the quarter with a single insert.
 
+> That is met **as a code path, not as a user flow.** `mark_complete` is whitelisted and tested, but
+> `Rock` declares `"actions": []` and there is no client script, so nobody can click it — see `UI-7`.
+> `V/TO` and `Quarterly Review` are usable today through the default desk form (System Manager only);
+> the live database holds **0** rows in `VTO`, `Rock`, `To Do` and `Quarterly Review`, so no Phase 5
+> workflow has been exercised by a person.
+
 ## Known gaps in Phases 1–5 (audited 2026-09-28, re-verified after Blocks 1 and 2)
 
 > **Audit record — not a queue.** Every item below was re-verified against the code and the live
@@ -250,8 +256,12 @@ Ninety's capability matrix:
 ## Phase 7 — Integrations, Bulk UX & Ninety parity `[ ]`
 
 - [ ] Scorecard grid UI: a Worksheet Page + whitelisted grid endpoint, plus a UI trigger for
-      `create_issue_from_metric` (Block 4, the largest parity gap)
-- [ ] Import/export scorecards (XLSX/CSV), bulk paste, bulk archive/duplicate/share
+      `create_issue_from_metric` (Block 4, the largest parity gap) — `UI-1`, `UI-2`
+- [ ] DocType actions for the three built endpoints that nothing can reach: `rock.mark_complete`,
+      `rock.get_rock_summary`, `scorecard_report.send_report` (all whitelisted and tested, all with
+      `"actions": []` and no client script) — `UI-7`. Smallest UI work in the project, and
+      independent of `PERM-2`/`UI-1`
+- [ ] Import/export scorecards (XLSX/CSV), bulk paste, bulk archive/duplicate/share — `UI-6`
 - [ ] Connectors (Jira, Salesforce, Google Sheets) via Webhook/ServerScript — design first
 
 Remaining Ninety features with no representation anywhere in the app:
