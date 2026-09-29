@@ -121,7 +121,7 @@ read. The whole suite stays green and `bench migrate` has been run.
   ```
 
 ### PERM-9.5 — Documentation and close-out
-- Status: TODO
+- Status: DONE
 - Scope: `docs/architecture.md`, `AGENTS.md`, `docs/TODO.md`.
 - Acceptance criteria: `architecture.md` §3, §3b, §3h (guard 2, guard 4 and the "known gap" section)
   and §5 state the new field and no longer describe `owner` as a business field; `AGENTS.md`'s known
@@ -136,7 +136,8 @@ read. The whole suite stays green and `bench migrate` has been run.
 
 ## Current Task
 
-`PERM-9.5` — documentation and close-out.
+None. `PERM-9` is complete and closed in `docs/TODO.md` as `e00011d`. The next item in the queue is
+`DATA-3`.
 
 ## Completed
 
@@ -270,6 +271,48 @@ Both mutations were reverted and the file re-checked line by line afterwards.
 
 `run-tests --app eos_core` → **248/248 OK** (185 integration + 63 unit).
 
+### PERM-9.5 — Documentation and close-out
+
+**`docs/architecture.md`**
+
+- §2 ER model and the metric bullet: `owner` → `owner_user`, plus a note that `owner` is the
+  creator and is not declared.
+- §3 scoping rule now reads `owner_user`.
+- §3h heading no longer says "except the owner-field gap"; the whole "known gap" subsection is
+  replaced by "Measurable ownership: `owner_user`, not `owner`" — a two-column table of the two
+  owners, the `DEFAULT_COLUMNS` reason the column survives, what the patch does, and the three
+  payloads that deliberately keep the key `owner`.
+- §3h guard 2 lists the field as `owner_user`; guard 4 no longer says "own means created".
+- §5 ER model for `Scorecard Report Metric` renamed; §7 phase summary updated.
+
+**`AGENTS.md`** — field list in the state table; a new "Measurable ownership is `owner_user`" note
+replacing the known-gap paragraph; the test table re-derived from `grep -c 'def test_'` (96 / 4 /
+12 / … = 185 + 63 = 248) because the old totals were 243 and the old table did not sum to its own
+total; a new gotcha that `owner` is never a business field; the "what to build next" summary now
+says Block B is complete.
+
+**`README.md`** — Phase 2/6 status, the open-work line and the test count.
+
+**`docs/roadmap.md`** — the Phase 6 "still open" paragraph and the `PERM-9` checkbox; suite count.
+
+**`docs/TODO.md`** — `PERM-9` removed from Block B, added to the *Done* table with SHA `e00011d`,
+a *Done* prose entry covering the rename / the undroppable column / the payloads that kept the name
+/ the backfill / the `TEAM_MEMBER_EDITABLE_FIELDS` decision / the five tests / the two knock-on
+effects; the header narrative; the "Next up" section retitled to "Block B is **closed**"; and the
+footer pointing at `DATA-3`. Block B now reads 11 done, 0 open.
+
+Stale-reference sweep after the edits:
+
+```bash
+grep -rn 'EOS Metric\.owner[^_]' docs/ AGENTS.md README.md eos_core/
+```
+
+The six remaining hits all describe the creator column, which is correct. `243` survives in three
+places in `TODO.md` as dated history (the re-verification pass and the two suite results recorded
+under `PERM-12`); those are records of what was true at the time, not live counts.
+
+`bench migrate` and the full suite were re-run after the documentation edits → **248/248 OK**.
+
 ## Decisions
 
 See *Decisions taken before implementing* above.
@@ -291,10 +334,31 @@ See *Decisions taken before implementing* above.
 - `PERM-9.2`: `test_eos_metric` 12/12 OK, `test_permissions` 92/92 OK.
 - `PERM-9.3`: `test_permissions` 92/92 OK, full suite 243/243 OK.
 - `PERM-9.4`: `test_permissions` 96/96 OK, full suite **248/248 OK** (185 integration + 63 unit).
+- `PERM-9.5`: docs updated across `architecture.md`, `AGENTS.md`, `README.md`, `roadmap.md` and
+  `TODO.md`; `bench migrate` and the full suite re-run after the doc edits — **248/248 OK** again.
 - One infrastructure note, not app code: when a test fails inside `setUp`, its fixture rows are left
   behind and the *next* run fails with `DuplicateEntryError` on `PT Org`. That is a symptom, not a
   second defect — fix the original error first. The `PT %` rows were swept before re-running.
 
+## Completion
+
+**Implementation SHA `e00011d`** — "Give EOS Metric a real, reassignable owner (PERM-9)".
+`docs/TODO.md` moves `PERM-9` to *Done* with that SHA, and the footer points at `DATA-3` as the next
+item to land. Block B (permissions) is now closed at 11/11.
+
+Every clause of the item's **Done when** is satisfied:
+
+| Clause | Evidence |
+|---|---|
+| A real, reassignable owner field distinct from its creator | `owner_user` declared and free; `owner` retained, set-only-once. Pinned by `test_a_measurable_owner_is_reassignable_and_distinct_from_its_creator`. |
+| A `Team Member` can be assigned one | `test_a_team_member_with_a_seat_may_be_assigned_a_measurable`. |
+| `validate_owner_team` re-pointed and re-documented | Reads `owner_user`; negative case in `test_a_measurable_may_not_be_assigned_outside_its_team`; `architecture.md` §2 and §3h. |
+| `PERM-8`'s ownership guard covers both it and `Rock.owner_user` | `validate_content_owner(self, "owner_user", "Measurable")`; `Rock` already used `owner_user`; `_assert_cannot_own` exercises both. |
+
+The item's own note — that adding a second owner field is a schema decision with downstream effects
+on `validate_owner_team`, the report snapshot, the scorecard grid and the 12 `EOS Metric` tests — was
+the reason this was its own item, and all four of those are covered by tests that changed with it.
+
 ## Remaining Work
 
-`PERM-9.5`.
+None for `PERM-9`. Next in the queue is `DATA-3`.

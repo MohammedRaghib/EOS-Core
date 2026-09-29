@@ -10,20 +10,27 @@ Last full audit: **2026-09-28** — every item below was re-verified against the
 **Since that audit**, Block A was closed in full (`BUG-1`..`BUG-5`, `DATA-1`, `DATA-2`) and `PERM-1`
 landed, taking the suite to **150 (87 integration + 63 unit)**, all green. `DATA-2` was found while
 closing `DATA-1` and is new; its recorded mechanism was wrong and is corrected in *Done*. The 129
-figure above is kept as the audit record; the live count is 243.
+figure above is kept as the audit record; the live count is 248.
 
 **Block B was then worked**: `PERM-6` (the team-scoping layer) landed *first*, because it was the
 stated blocker for `PERM-2`, and `PERM-2` followed. Doing them in that order turned up five items
-that no prior list contained — `PERM-7`, `PERM-8`, `PERM-10` and `PERM-11` are closed, and so is
-`PERM-12`. Both of the two that were left open were found *after* the release rather than before it:
+that no prior list contained — `PERM-7`, `PERM-8`, `PERM-10` and `PERM-11` are closed, and so are the
+last two. Both were found *after* the release rather than before it:
 
-- **`PERM-9` (S2)** — `EOS Metric.owner` is Frappe's immutable creator field, so a Measurable's
-  owner can never be reassigned and only its creator can own one. **The only open item in Block B.**
 - **`PERM-12` (S1) — closed 2026-09-29, SHA `676fde8`.** The four grant rows that needed a JSON
   edit or a guard are now aligned with Ninety; the fifth (`Archive a To-Do`) turned out not to be a
   permission gap at all, and closing it exposed one real gap that no list had — `DATA-3`.
+- **`PERM-9` (S2) — closed 2026-09-29, SHA `e00011d`.** `EOS Metric.owner` was Frappe's immutable
+  creator field, so a Measurable's owner could never be reassigned and only its creator could own
+  one. A Measurable now has a real, reassignable owner on `owner_user`, and **Block B is closed.**
 
-Suite: **243 (180 integration + 63 unit)**, all green. `bench migrate` run.
+Suite: **248 (185 integration + 63 unit)**, all green. `bench migrate` run.
+
+**The trap `PERM-9` had to avoid, and why its API stayed put.** `owner` is in
+`frappe.db.DEFAULT_COLUMNS`, so the schema sync *never* drops that column — renaming the declared
+field away from it is correct, and trying to drop the column is not. Separately, `owner` remains the
+key in the engine block, the rollup payload and the email context: those are read contracts, not
+`EOS Metric` rows, and changing them would have broken callers for no parity gain.
 
 **Doc/code re-verification, 2026-09-29.** Every status in this file was re-checked against the code,
 the live `resolv.localhost` database and a 243-test run. **No status was wrong**: each `DONE` item's
@@ -72,12 +79,12 @@ Follow them exactly.
 ```bash
 cd /workspace/development/frappe-bench
 bench --site resolv.localhost migrate                      # after ANY *.json edit, incl. permissions
-bench --site resolv.localhost run-tests --app eos_core     # full suite, 243 tests
+bench --site resolv.localhost run-tests --app eos_core     # full suite, 248 tests
 bench --site resolv.localhost run-tests --module eos_core.test_permissions   # the permission layer
 ./env/bin/python -c "import sys; sys.path.insert(0,'apps/eos_core'); from eos_core.scorecard_engine import compute_status"  # engine only, no DB
 ```
 
-**Reading the permission tests.** `eos_core/test_permissions.py` holds 26 hand-written tests plus
+**Reading the permission tests.** `eos_core/test_permissions.py` holds 30 hand-written tests plus
 **66 generated ones** (11 team-scoped DocTypes × 6 roles), so the total is not visible from a
 `grep -c 'def test_'`. The generated names are `test_visibility_<doctype>_<role>`, and each asserts
 that a user holding a seat in Team A sees Team A's row of that DocType and — for `Manager`,
@@ -88,22 +95,22 @@ if you change a condition in `eos_core/permissions.py`, this is what tells you.
 
 # Queue
 
-## Next up: `PERM-9` (S2), the last open item in Block B
+## Block B is **closed**
 
-Block A is **closed**. Block B (permissions) is now **built**: the six roles carry DocPerm blocks, the
-team-scoping layer exists, the field-level ownership, data-entry and deletion rules Ninety states
-explicitly are enforced and tested, and the grants match Ninety's published tables row for row
-(`PERM-12` closed 2026-09-29). One thing remains before this block can be called correct rather than
-merely present:
+Block A is **closed**. Block B (permissions) is now **built and correct**: the six roles carry DocPerm
+blocks, the team-scoping layer exists, the field-level ownership, data-entry and deletion rules
+Ninety states explicitly are enforced and tested, the grants match Ninety's published tables row for
+row (`PERM-12`), and a Measurable has a real, reassignable owner rather than its creator's name
+(`PERM-9`).
 
-- **`PERM-9` (S2) — the data model, not the permission code.** `EOS Metric.owner` is Frappe's
-  *immutable creator* field, so a Measurable's owner cannot be reassigned, only its creator can own
-  one, and `validate_owner_team` is really a rule about creation rather than ownership. It is why
-  `PERM-12`'s ownership-scoped delete can only ever mean "a Measurable I created", and it blocks
-  `PERM-4`'s Reassign action.
+The one thing `PERM-9` changed about `PERM-12`'s delete guard: "own" now means `owner_user`, so the
+guard reads *business* ownership. A Manager who created a Measurable and handed it to someone else
+may no longer delete it, and one who did not create it may. That is the stricter reading and the one
+Ninety's footnote describes.
 
 `PERM-3`, `PERM-4` and `PERM-5` are **UI-blocked**, not permission-blocked — their DocPerm halves
-are already in place and tested.
+are already in place and tested. `PARITY-1` (Ninety's "my KPIs"/trailing-streak definition) is no
+longer gated behind `PERM-9` and is now the largest correctness-parity item left.
 
 ---
 
@@ -131,7 +138,7 @@ default list and reachable from an archive view, and the change is covered by te
 
 ---
 
-## Block B — Phase 6: Permissions & Roles (11 items, 7 done, 4 open)
+## Block B — Phase 6: Permissions & Roles (11 items, **11 done**)
 
 DocPerm blocks and the team-scoping layer are both live. Verified 2026-09-29 in the live DB: all 13
 standard DocTypes carry **7** DocPerm rows (`System Manager` plus the six Ninety roles) and all 11
@@ -294,31 +301,6 @@ the same for a To-Do, an Issue and a Headline. The roles tables give the row as
 DocPerm cannot see *which user* a field points at, so it is a validation rather than a permission
 block: `OWNER_ROLES = Owner, Admin, Manager, Team Member`.
 
-### PERM-9 — S2 · `EOS Metric.owner` is Frappe's creator, so a Measurable's owner is fixed — **OPEN**
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-29** · *found 2026-09-29 while
-closing `PERM-8`*
-**Where** `eos_core/eos_core/doctype/eos_metric/eos_metric.json`, field `owner`
-**Problem** `EOS Metric.owner` is not a business field. It collides with Frappe's document `owner`,
-which is in `meta.get_set_only_once_fields()`: Frappe sets it to the creating user on insert and
-refuses any later change with `CannotChangeConstantError`. Verified live:
-`get_set_only_once_fields()` returns `creation` and `owner` for `EOS Metric`, and only
-`rock_name`/`creation`/`owner` for `Rock` — so `Rock.owner_user` **is** a free business field while
-`EOS Metric.owner` is not. Three consequences, all test-pinned:
-1. A Measurable's owner is always its creator, so only a user who can *create* measurables can own
-   one. `PERM-2` gives `create` to Manager and above, and Ninety gives Team Members the right to
-   own Measurables — so **a Team Member can never own a Measurable in this app.**
-2. There is no way to reassign a Measurable's owner, so Ninety's Measurable Manager "Reassign"
-   bulk action has nothing to act on.
-3. `validate_owner_team` ("the owner must hold a `Player` record in the metric's team") is therefore
-   really a rule about **who is allowed to create a Measurable on a team** — which is right, but is
-   not what the docs say it is.
-**Not fixed here** on purpose: adding a second owner field, or renaming, is a schema decision with
-downstream effects on `validate_owner_team`, the report snapshot, the scorecard grid and the
-existing 12 `EOS Metric` tests. It needs its own item, not a drive-by.
-**Done when** a Measurable has a real, reassignable owner field distinct from its creator, a
-`Team Member` can be assigned one, `validate_owner_team` is re-pointed at it and re-documented, and
-`PERM-8`'s ownership guard covers both it and `Rock.owner_user`.
-
 ### PERM-10 — S2 · `send_report` was callable by any user with read — **DONE**
 **Status** `DONE` · code+tests ☑ · reachable ☑ · **Closed 2026-09-29** · *found 2026-09-29 while
 applying `PERM-2`*
@@ -372,10 +354,11 @@ disagreed. Four are now aligned; the fifth turned out not to be a permission gap
   cannot* → *"Delete Measurables owned by others."* A bare `delete` row would hand every Team Member
   and Manager deletion of **every** Measurable in their teams — a parity regression. So
   `validate_content_deletion` runs in `EOSMetric.on_trash` and throws `frappe.PermissionError` unless
-  the deleting user is `Owner`, `Admin` or `Coach`, or the Measurable's `owner` is the session user.
-  This was **not** actually blocked on `PERM-9`: `owner` is the creator, so "own" means "created",
-  but the row is still reachable — a Manager who created a Measurable can delete it, and cannot
-  delete one they did not.
+  the deleting user is `Owner`, `Admin` or `Coach`, or the Measurable's `owner_user` is the session
+  user. This was **not** actually blocked on `PERM-9`, so the guard was written before the field
+  moved; `PERM-9` afterwards re-pointed it, and "own" now means business ownership rather than
+  "created" — a Manager who created a Measurable and reassigned it may no longer delete it, and one
+  who did not create it but owns it may.
 - **`Delete a Rock` does not need an ownership check**, which was the open question in the original
   item. Ninety's Rocks article settles it: *"Any team member on a paid plan can edit Rocks on the
   teams they're assigned to. That means Team Members can update Rocks belonging to their manager,
@@ -675,6 +658,55 @@ Moved here when finished. Never deleted, never renumbered.
 | `PERM-10` | `send_report` was callable by any user with read | 2026-09-29 | `83a2db8` |
 | `PERM-11` | Ninety's docs never say whether a `Coach` may manage Measurable Groups | 2026-09-29 | `83a2db8` |
 | `PERM-12` | The DocPerm blocks are narrower than Ninety in five places | 2026-09-29 | `676fde8` |
+| `PERM-9` | `EOS Metric.owner` is Frappe's creator, so a Measurable's owner is fixed | 2026-09-29 | `e00011d` |
+
+### `PERM-9` — the field rename, the column that could not be dropped, and what stayed `owner`
+
+**The rename.** `EOS Metric`'s declared field is now `owner_user` — `Link → User`, `reqd`, in the list
+view — matching `Rock.owner_user` and `Issue.owner_user`, so ownership is spelled one way across the
+app. `EOSMetric.before_insert` defaults it to `frappe.session.user`, which reproduces what Frappe
+used to do to `owner` implicitly; the form still requires it, so the field is `reqd` even though
+Python callers may omit it.
+
+**`owner` was not dropped, and could not be.** `frappe/database/database.py` lists `owner` in
+`DEFAULT_COLUMNS`, so the column exists on every DocType whether or not the JSON declares it, and
+`bench migrate` does not drop anything in that tuple. Renaming the declared field *away* from `owner`
+is therefore the whole fix, and a patch that tried to `drop column owner` would be wrong. Verified
+after migrate: `tabEOS Metric` has both `owner` and `owner_user`, and
+`meta.get_set_only_once_fields()` now returns `['creation', 'owner']` only — i.e. `owner_user` is
+free, which is the property the item was really asking for.
+
+**What deliberately kept the name `owner`.** Three payloads, none of which is an `EOS Metric` row:
+`ScorecardReport._build_metric_block` keys the engine block by `owner` (`build_scorecard_report`'s
+block vocabulary is `name`/`actual`/`target`/`statuses`, not a DocType row), `Scorecard.get_rollup_view`
+returns `owner` in its JSON payload, and `_email_context` exposes `owner` because
+`templates/emails/weekly_scorecard_report.html` renders `{{ row.owner }}`. All three are read
+contracts; renaming them would break callers for no parity gain. `Scorecard Report Metric` — which
+*is* a DocType row — was renamed, for the same reason as `EOS Metric`: its declared `owner` was the
+same collision, and its rows are rewritten from scratch on every report, so nothing historical was
+lost.
+
+**The backfill.** `patches/backfill_measurable_owner` copies `owner` into `owner_user` for rows
+predating the change, guarded by `has_column` and by an emptiness check on the target, so it is
+idempotent and safe on a fresh site. Registered under `[post_model_sync]`, so it runs after the
+schema that introduces the column exists.
+
+**`TEAM_MEMBER_EDITABLE_FIELDS` was left alone, on purpose.** Ninety lets a Team Member *own* a
+Measurable and *not* reassign one, so the natural fix — adding `owner_user` to that allow-list —
+would have been a parity regression. It stays as `PERM-7` set it.
+
+**Tests, five new.** Reassignment moves `owner_user` and leaves `owner` at the creator; a new
+Measurable takes its creating user; a Team Member holding a seat in the team may be assigned one; an
+assignee holding a seat only in *another* team is refused by `validate_owner_team`; and the delete
+guard follows `owner_user` in both directions (a Manager who created it and reassigned it away is
+refused, one who did not create it but owns it may delete). Plus a report-snapshot test asserting the
+stored value is the business owner. Each of the two behavioural guards was mutation-checked: putting
+`owner` back into `on_trash` and removing the `before_insert` default each fail their tests, and both
+were restored. Suite: **248/248 (185 integration + 63 unit)**; `bench migrate` required and run.
+
+**Two knock-on effects, recorded.** `PERM-12`'s ownership-scoped delete now reads business ownership
+rather than creation, which is the stricter reading of the same Ninety footnote. And `PARITY-1`, which
+was gated behind this item, is unblocked.
 
 ### `PERM-2` + `PERM-6` — the DocPerm blocks and the scoping layer, in that order
 
@@ -885,8 +917,8 @@ neither and shows bare hashes.
 reason for existing (it does not evaluate, which is why `{A}/(1-{B})` is not rejected for dividing by
 zero). §4 now lists 29 of 29 public functions and agrees with `AGENTS.md`.
 
-Next item to land: `PERM-9` (S2), the last open item in Block B. It is a schema decision, not a
-permission fix — a Measurable needs a real, reassignable owner field — and `PARITY-1` is gated
-behind it, so read `PERM-9`'s "Done when" before touching `eos_metric.json`. `DATA-3` is the only
-other open correctness item, and it is small: add the `archived` flag to `Rock`, `Issue` and
-`To Do`. `PERM-3`, `PERM-4` and `PERM-5` are UI-blocked.
+Next item to land: `DATA-3` (S2) — add the `archived` flag to `Rock`, `Issue` and `To Do`. It is
+small and independent: three JSON edits, and it unblocks Ninety's archive and archive view for all
+three tools. `PARITY-1` (Ninety's "my KPIs" definition and the trailing-streak question) is the
+larger correctness-parity item and is no longer gated on anything. `PERM-3`, `PERM-4` and `PERM-5`
+remain UI-blocked, and `PERM-4`'s "Reassign" action now has a field to act on.

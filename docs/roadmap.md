@@ -118,7 +118,7 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
       period (overdue judged against `period_end`), and team Measurables as **On Track / Off Track
       counts** (not green/red) via `build_quarterly_review`
 - [x] Tests: `test_rock.py` (5), `test_to_do.py` (5),
-      `test_quarterly_review.py` (5), `test_vto.py` (4) — all green; full suite **243** tests (63 unit + 180 integration) as of 2026-09-29
+      `test_quarterly_review.py` (5), `test_vto.py` (4) — all green; full suite **248** tests (63 unit + 185 integration) as of 2026-09-29
 
 **Definition of done (met):** all 24 Eos Core DocTypes registered (migrate clean, zero orphans);
 create an Organization → auto-populated `V/TO`, add Rocks with milestones → mark complete cascades
@@ -243,9 +243,9 @@ row, because Ninety scopes it to the KPI you own. The fifth row of the original 
 To-Do`, was recorded wrongly — Ninety does not grant it to Observer either — and what it exposed is
 `DATA-3`: `To Do`, `Issue` and `Rock` have no `archived` field at all.
 
-Still open in this phase: the Measurable Manager surface, the reorder rule, per-team worksheet
-settings, and `PERM-9` — `EOS Metric.owner` is Frappe's immutable creator field, so a Measurable's
-owner can never be reassigned and a Team Member can never own one.
+Still open in this phase: the Measurable Manager surface, the reorder rule and per-team worksheet
+settings. `PERM-9` is no longer among them — a Measurable's owner is now reassignable and a Team
+Member can own one.
 
 Ninety's capability matrix:
 
@@ -277,7 +277,8 @@ Ninety's capability matrix:
 - [ ] **Team Members may reorder measurables within a group, even measurables they do not own** (`PERM-3`) — DocPerm half is in place; needs the grid (`UI-1`) and a reorder carve-out in `PERM-7`'s guard
 - [ ] Only Owner / Admin / Coach see the Measurable Manager (`PERM-4`) — DocPerm half is in place; needs the surface
 - [ ] Worksheet-level column visibility and status-colour toggles (team-level settings) (`PERM-5`)
-- [ ] A Measurable's owner is reassignable and distinct from its creator (`PERM-9`) — schema change
+- [x] A Measurable's owner is reassignable and distinct from its creator (`PERM-9`) — `owner_user` is
+      the business field; Frappe's `owner` creator column stays where it is
 - [ ] `Rock`, `Issue` and `To Do` can be archived (`DATA-3`) — the field does not exist, so Ninety's
       archive and archive view are unimplementable
 
