@@ -10,20 +10,20 @@ Last full audit: **2026-09-28** — every item below was re-verified against the
 **Since that audit**, Block A was closed in full (`BUG-1`..`BUG-5`, `DATA-1`, `DATA-2`) and `PERM-1`
 landed, taking the suite to **150 (87 integration + 63 unit)**, all green. `DATA-2` was found while
 closing `DATA-1` and is new; its recorded mechanism was wrong and is corrected in *Done*. The 129
-figure above is kept as the audit record; the live count is 237.
+figure above is kept as the audit record; the live count is 243.
 
 **Block B was then worked**: `PERM-6` (the team-scoping layer) landed *first*, because it was the
-stated blocker for `PERM-2`, and `PERM-2` followed. Doing them in that order turned up four items
-that no prior list contained — `PERM-7`, `PERM-8`, `PERM-10` and `PERM-11` are closed. Two remain
-open, and both were found *after* the release rather than before it:
+stated blocker for `PERM-2`, and `PERM-2` followed. Doing them in that order turned up five items
+that no prior list contained — `PERM-7`, `PERM-8`, `PERM-10` and `PERM-11` are closed, and so is
+`PERM-12`. Both of the two that were left open were found *after* the release rather than before it:
 
 - **`PERM-9` (S2)** — `EOS Metric.owner` is Frappe's immutable creator field, so a Measurable's
-  owner can never be reassigned and only its creator can own one.
-- **`PERM-12` (S1)** — five grants are narrower than Ninety publishes. Found by reading the roles
-  article row by row after the code had already shipped, which is exactly the kind of check that
-  should have happened first.
+  owner can never be reassigned and only its creator can own one. **The only open item in Block B.**
+- **`PERM-12` (S1) — closed 2026-09-29, SHA `676fde8`.** The four grant rows that needed a JSON
+  edit or a guard are now aligned with Ninety; the fifth (`Archive a To-Do`) turned out not to be a
+  permission gap at all, and closing it exposed one real gap that no list had — `DATA-3`.
 
-Suite: **237 (174 integration + 63 unit)**, all green. `bench migrate` run.
+Suite: **243 (180 integration + 63 unit)**, all green. `bench migrate` run.
 
 ## Rules for agents working this queue
 
@@ -57,12 +57,12 @@ Follow them exactly.
 ```bash
 cd /workspace/development/frappe-bench
 bench --site resolv.localhost migrate                      # after ANY *.json edit, incl. permissions
-bench --site resolv.localhost run-tests --app eos_core     # full suite, 237 tests
+bench --site resolv.localhost run-tests --app eos_core     # full suite, 243 tests
 bench --site resolv.localhost run-tests --module eos_core.test_permissions   # the permission layer
 ./env/bin/python -c "import sys; sys.path.insert(0,'apps/eos_core'); from eos_core.scorecard_engine import compute_status"  # engine only, no DB
 ```
 
-**Reading the permission tests.** `eos_core/test_permissions.py` holds 20 hand-written tests plus
+**Reading the permission tests.** `eos_core/test_permissions.py` holds 26 hand-written tests plus
 **66 generated ones** (11 team-scoped DocTypes × 6 roles), so the total is not visible from a
 `grep -c 'def test_'`. The generated names are `test_visibility_<doctype>_<role>`, and each asserts
 that a user holding a seat in Team A sees Team A's row of that DocType and — for `Manager`,
@@ -73,32 +73,47 @@ if you change a condition in `eos_core/permissions.py`, this is what tells you.
 
 # Queue
 
-## Next up: `PERM-12` (S1), then `PERM-9`
+## Next up: `PERM-9` (S2), the last open item in Block B
 
-Block A is **closed**. Block B (permissions) is now **mostly** built: the six roles carry DocPerm
-blocks, the team-scoping layer exists, and the two field-level ownership/data-entry rules Ninety
-states explicitly are enforced and tested. Two things remain before this block can be called correct
-rather than merely present:
+Block A is **closed**. Block B (permissions) is now **built**: the six roles carry DocPerm blocks, the
+team-scoping layer exists, the field-level ownership, data-entry and deletion rules Ninety states
+explicitly are enforced and tested, and the grants match Ninety's published tables row for row
+(`PERM-12` closed 2026-09-29). One thing remains before this block can be called correct rather than
+merely present:
 
-- **`PERM-12` (S1) — the grants disagree with Ninety in five rows.** Found by reading the roles
-  article row by row *after* `PERM-2` shipped, not before. Four of the five rows are unblocked
-  (Observer's Issue/To-Do rights, and Team Member's Rock delete); the fifth, Team Member deleting
-  their own Measurable, needs an ownership check rather than a DocPerm row.
 - **`PERM-9` (S2) — the data model, not the permission code.** `EOS Metric.owner` is Frappe's
   *immutable creator* field, so a Measurable's owner cannot be reassigned, only its creator can own
-  one, and `validate_owner_team` is really a rule about creation rather than ownership. This blocks
-  the last row of `PERM-12` and all of `PERM-4`'s Reassign action.
+  one, and `validate_owner_team` is really a rule about creation rather than ownership. It is why
+  `PERM-12`'s ownership-scoped delete can only ever mean "a Measurable I created", and it blocks
+  `PERM-4`'s Reassign action.
 
 `PERM-3`, `PERM-4` and `PERM-5` are **UI-blocked**, not permission-blocked — their DocPerm halves
 are already in place and tested.
 
 ---
 
-## Block A — Correctness (0 open, 7 done)
+## Block A — Correctness (1 open, 7 done)
+
+### DATA-3 — S2 · `Rock`, `Issue` and `To Do` have no `archived` field, so Ninety's archive cannot exist
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Found 2026-09-29 while closing `PERM-12`**
+**Where** `eos_core/eos_core/doctype/{rock,issue,to_do}/*.json`
+**Problem** Ninety's roles table gives every role but Observer an `Archive a To-Do` row, and its
+To-Do, Issue and Rocks tools each have an `Archive …` and a `View archive` surface. Archiving is a
+write to an `archived` flag, and in this app only `EOS Metric` and `Measurable Group` carry one —
+verified against the JSON, none of the three has the field, so there is nothing for an archive button
+to set and no archived To-Do can exist at all.
+**Why this is not a permission item** archiving follows `write`, and those grants are already right
+(Observer refused, everyone else with `write` allowed). The gap is a missing field, not a missing
+grant. It is queued here rather than fixed under `PERM-12` because it is a schema change with the
+same downstream weight as `PERM-9` — it touches list filters, the quarterly review snapshot and the
+report snapshot.
+**Done when** the three DocTypes carry an `archived` flag, archive and restore follow Ninety's role
+matrix (Observer refused, every other role with `write` allowed), archived rows are excluded from the
+default list and reachable from an archive view, and the change is covered by tests.
 
 ---
 
-## Block B — Phase 6: Permissions & Roles (11 items, 6 done, 5 open)
+## Block B — Phase 6: Permissions & Roles (11 items, 7 done, 4 open)
 
 DocPerm blocks and the team-scoping layer are both live. Verified 2026-09-29 in the live DB: all 13
 standard DocTypes carry **7** DocPerm rows (`System Manager` plus the six Ninety roles) and all 11
@@ -126,18 +141,20 @@ The mapping actually applied, per DocType (full table in `docs/architecture.md` 
 | `Organization` | Owner, Admin, Coach | company setup is not a team action |
 | `Team`, `Player` | + Manager | "Managers have … the ability to create new teams", invite users |
 | `VTO`, `Scorecard` | + Manager | team/company scorecard settings |
-| `EOS Metric` | create + Manager; write + Team Member; delete + Manager | Team Member cannot create a Measurable but must enter data (`PERM-7`) |
+| `EOS Metric` | create + Manager; write + Team Member; delete + Manager, + Team Member for a Measurable they own | Team Member cannot create a Measurable but must enter data (`PERM-7`); Ninety scopes Measurable removal to the KPI you own, so `delete` alone is not enough (`PERM-12`) |
 | `Measurable Group` | + Manager | only Owner/Admin/Manager manage groups; Coach decided as Admin (`PERM-11`) |
-| `Issue`, `Level 10 Meeting`, `To Do` | + Team Member | team-collaborative workflows |
-| `Rock` | create/write + Team Member, delete + Manager | Team Members own Rocks; deletion is narrower by choice |
+| `Rock` | create/write/delete + Team Member | Ninety: *"Any team member on a paid plan can edit Rocks on the teams they're assigned to … You don't need to be the Rock's owner to make changes"*, so a flat `delete` is the parity grant |
+| `Issue`, `To Do` | + Team Member; `delete` also Observer | Ninety's tables grant `Delete an Issue` and `Delete a To-Do` to all six roles, Observer included, even though the same article describes Observers as view-only |
+| `Level 10 Meeting` | + Team Member | team-collaborative workflow; no Observer delete, because Ninety's published meeting rows are not a delete list we have verified |
 | `Scorecard Report`, `Quarterly Review` | + Manager | snapshot surfaces are a settings-level action |
 | child tables | none | children inherit the parent |
 
-`archive`/`unarchive` is not a DocPerm column — it is a write to the `archived` field, which both
-`EOS Metric` and `Measurable Group` have. So archiving follows `write`: `Observer` is refused by
-DocPerm, `Team Member` is refused twice (DocPerm on the group, and `validate_data_entry_only` on the
-metric), and the four Measurable-Manager roles may do it. No bulk-archive surface exists yet, which
-is `PERM-4` and `UI-6`.
+`archive`/`unarchive` is not a DocPerm column — it is a write to the `archived` field, which only
+`EOS Metric` and `Measurable Group` carry. So archiving follows `write`: `Observer` is refused by
+DocPerm, `Team Member` is refused twice on a Measurable (DocPerm on the group, and
+`validate_data_entry_only` on the metric), and the four Measurable-Manager roles may do it. No
+bulk-archive surface exists yet, which is `PERM-4` and `UI-6`. `Rock`, `Issue` and `To Do` have no
+`archived` field at all, which is `DATA-3`.
 
 ### PERM-3 — S2 · Team Members may reorder measurables they do not own
 **Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-29**
@@ -227,23 +244,23 @@ Landing `PERM-2` without narrowing this would have handed Team Members the right
 `metric_name`, `unit_type` and `owner` on any Measurable, which Ninety explicitly reserves for
 Manager and above.
 **How** a field-level guard. `validate_data_entry_only` compares the submitted doc against
-`get_doc_before_save()` and throws if any non-child, non-system field other than `entries` changed.
-`Administrator` and any `System Manager` holder is exempt; `frappe.flags.ignore_permissions` is
-exempt.
+`get_doc_before_save()` and throws if any non-child, non-system field outside
+`TEAM_MEMBER_EDITABLE_FIELDS` changed. `Administrator` and any `System Manager` holder is exempt;
+`frappe.flags.ignore_permissions` is exempt.
 **Gotcha worth keeping** the guard must run **first** in `validate`, before `validate_range_target`.
 `validate_range_target` rewrites a `0` `min_value`/`max_value` to `None` (they are
 `NOT NULL DEFAULT 0`, so a reload gives `0.0`), which would otherwise read as a settings change and
 throw on every data entry. The first version ran the guard last and failed exactly that way.
-**Verified scope — and the guard is broader than Ninety (see `PERM-12`).** Ninety defines the locked
-set precisely, in a footnote on the Scorecard Permissions article: *"'Edit Measurable settings'
-refers to a Measurable's title, unit type, and ownership — locked to Manager and above. It does not
-include Set new future Goal, Set custom Goal or note, or entering forecasted future values; those are
-Scorecard actions any Team Member can use."* The current guard blocks **every** non-entry field, so
-it is correct for `metric_name`, `unit_type` and `owner`, but also blocks `target_value`,
-`min_value`/`max_value`, `description`, `group` and `archived`, all of which Ninety lets a Team
-Member change. Recorded as `PERM-12` rather than loosened here, because two of those fields are the
-home of `PARITY-3` (goal-setting) and `PERM-3` (reordering), and neither surface exists yet to test
-against.
+**Scope — corrected 2026-09-29 under `PERM-12`.** Ninety defines the locked set precisely, in a
+footnote on the Scorecard Permissions article: *"'Edit Measurable settings' refers to a Measurable's
+title, unit type, and ownership — locked to Manager and above. It does not include Set new future
+Goal, Set custom Goal or note, or entering forecasted future values; those are Scorecard actions any
+Team Member can use."* The first version of this guard blocked **every** non-entry field, which was
+too broad: it also blocked `target_value`, `min_value`/`max_value`, `description` and `group`. It is
+now an allow-list (`TEAM_MEMBER_EDITABLE_FIELDS`) of exactly what Ninety lets a Team Member change
+under the Scorecard — `entries`, `description`, `group`, `min_value`, `max_value`, `target_value` —
+and everything else stays blocked. It is an allow-list rather than a deny-list on purpose, so a
+field added later is blocked for a Team Member until someone has checked Ninety for it.
 
 ### PERM-8 — S2 · `Coach` and `Observer` may not own a Measurable or a Rock — **DONE**
 **Status** `DONE` · code+tests ☑ · reachable ☑ · **Closed 2026-09-29** · *found 2026-09-29 while
@@ -311,44 +328,61 @@ Recorded in `architecture.md` §3h rather than left implicit. No test beyond the
 which pins the grant.
 **Revisit** if Ninety publishes a contrary statement.
 
-### PERM-12 — S1 · The DocPerm blocks are narrower than Ninety in five places — **OPEN**
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-29** · *found 2026-09-29 by
-reading the roles article row by row after the release, not before it*
+### PERM-12 — S1 · The DocPerm blocks are narrower than Ninety in five places — **DONE**
+**Status** `DONE` · code+tests ☑ · reachable ☑ · **Closed 2026-09-29** · SHA `676fde8` · *found
+2026-09-29 by reading the roles article row by row after the release, not before it*
 **Evidence** [User Roles and Permissions](https://help.ninety.io/en/articles/14306404-user-roles-and-permissions),
 whose tables are ordered **Owner | Admin | Manager | Managee (= Team Member) | Observer |
-Implementer (= Coach)**. This is the first pass that compared every row against the grants actually
-in the DB, and five rows disagree:
+Implementer (= Coach)**, plus [Scorecard Permissions Explained](https://help.eos.ninety.io/en/articles/13642403-scorecard-permissions-explained-who-can-create-edit-and-view-your-measurables)
+and [Editing and Updating Rocks](https://help.ninety.io/en/articles/15440528-editing-and-updating-rocks).
+This was the first pass that compared every row against the grants actually in the DB, and five rows
+disagreed. Four are now aligned; the fifth turned out not to be a permission gap at all.
 
-| Action | Ninety grants it to | We grant it to | Deviation |
+| Action | Ninety grants it to | We granted it to | Outcome |
 |---|---|---|---|
-| **Remove Measurables** | all but Observer | Owner, Admin, Coach, Manager | **Team Member missing** |
-| **Delete a Rock** | all but Observer | Owner, Admin, Coach, Manager | **Team Member missing** |
-| **Delete an Issue** | all six, Observer included | all but Observer | **Observer missing** |
-| **Delete a To-Do** | all six, Observer included | all but Observer | **Observer missing** |
-| **Archive a To-Do** | all but Observer | write, all but Observer | **Observer missing** |
+| **Remove Measurables** | all but Observer, own-only below Manager | Owner, Admin, Coach, Manager | **aligned** — `delete` for Team Member, paired with an ownership check |
+| **Delete a Rock** | all but Observer | Owner, Admin, Coach, Manager | **aligned** — flat `delete` for Team Member |
+| **Delete an Issue** | all six, Observer included | all but Observer | **aligned** — `delete` for Observer |
+| **Delete a To-Do** | all six, Observer included | all but Observer | **aligned** — `delete` for Observer |
+| **Archive a To-Do** | all but Observer | write, all but Observer | **not a gap** — see below |
 
-Narrowing is not automatically wrong — but every one of these was written up as a *deliberate*
-narrowing or simply went unmentioned, which is not the same thing. Two need care rather than a JSON
-edit:
+**How the two care cases were resolved.**
 
-- **`Remove Measurables` is ownership-scoped in Ninety.** The Scorecard Permissions article footnotes
-  it: *"Team Members and Managers can delete KPIs they're assigned to from the My 90 Scorecard
-  widget, while Admins, Owners, and Coaches can archive or delete any KPI from the KPI Manager"*, and
-  lists under *Team Members cannot* → *"Delete Measurables owned by others."* A DocPerm `delete` row
-  would grant deletion of **every** measurable in the Team Member's teams, which is a *parity
-  regression*, not an implementation. This one needs an ownership check in `validate` (compare `owner`
-  to the session user before allowing a delete) — and it is blocked on `PERM-9`, because `owner` is
-  the creator, not the assigned owner.
-- **`Delete a Rock` needs the same ownership question answered**, because `Rock.owner_user` *is* a
-  real field, so unlike `EOS Metric` this could be done today.
+- **`Remove Measurables` needed a guard, not a DocPerm row.** Ninety footnotes it: *"Team Members
+  and Managers can delete KPIs they're assigned to from the My 90 Scorecard widget, while Admins,
+  Owners, and Coaches can archive or delete any KPI from the KPI Manager"*, and under *Team Members
+  cannot* → *"Delete Measurables owned by others."* A bare `delete` row would hand every Team Member
+  and Manager deletion of **every** Measurable in their teams — a parity regression. So
+  `validate_content_deletion` runs in `EOSMetric.on_trash` and throws `frappe.PermissionError` unless
+  the deleting user is `Owner`, `Admin` or `Coach`, or the Measurable's `owner` is the session user.
+  This was **not** actually blocked on `PERM-9`: `owner` is the creator, so "own" means "created",
+  but the row is still reachable — a Manager who created a Measurable can delete it, and cannot
+  delete one they did not.
+- **`Delete a Rock` does not need an ownership check**, which was the open question in the original
+  item. Ninety's Rocks article settles it: *"Any team member on a paid plan can edit Rocks on the
+  teams they're assigned to. That means Team Members can update Rocks belonging to their manager,
+  and vice versa. You don't need to be the Rock's owner to make changes."* The ownership scoping in
+  Ninety applies to **Measurables only**, so a flat `delete` is the parity grant.
+- **`Archive a To-Do` was never a permission deviation.** Ninety grants archiving to all roles *but
+  Observer, and Observer is exactly the role we withhold it from* — so the "Observer missing" note in
+  the original table was wrong. The real problem underneath it is that `To Do` has no `archived`
+  field, so Ninety's archive is unimplementable for To-Dos, Issues and Rocks. Queued as `DATA-3`
+  rather than fixed here, because it is a schema change, not a grant.
 
-**`PERM-7` is also in scope here**, from the other direction: its guard blocks *every* non-entry
-field, while Ninety's locked set is only **title, unit type and ownership**. See `PERM-7` for the
-quote.
+**`PERM-7` was in scope from the other direction** and is now corrected: its guard blocked *every*
+non-entry field, while Ninety's locked set is only **title, unit type and ownership**. The guard is
+now an allow-list of the fields Ninety lets a Team Member change under the Scorecard. See `PERM-7`
+for the quote and the field list.
 
-**Done when** each of the five rows is either brought in line with Ninety or recorded as a named,
-intentional deviation in `architecture.md` §7 with its reason, and `PERM-7`'s field list matches
-Ninety's locked set — each with a test that would fail if the grant moved back.
+**Tests** six new tests, all of which fail if a grant moves back: a Team Member and a Manager can each
+delete a Measurable they own and are refused on one they do not; an Owner deletes one they do not own;
+an Observer deletes an Issue and a To-Do but is refused a Measurable; a Team Member deletes a Rock. The
+`DOCPERM_MATRIX` test was extended (`delete` on `EOS Metric` and `Rock` is now "every role but
+Observer", `Issue` and `To Do` are all six). One existing test was **wrong** and was rewritten:
+`test_team_member_enters_data_but_cannot_change_settings` asserted that a Team Member could not change
+`target_value`, which Ninety's own footnote says they may. It now asserts on `unit_type`, which is
+inside the locked set, and a new test covers the goal/description/group fields a Team Member may
+change. Suite: **243/243 (180 integration + 63 unit)**; `bench migrate` required and run.
 
 ---
 
@@ -616,6 +650,7 @@ Moved here when finished. Never deleted, never renumbered.
 | `PERM-8` | `Coach` and `Observer` may not own a Measurable or a Rock | 2026-09-29 | `83a2db8` |
 | `PERM-10` | `send_report` was callable by any user with read | 2026-09-29 | `83a2db8` |
 | `PERM-11` | Ninety's docs never say whether a `Coach` may manage Measurable Groups | 2026-09-29 | `83a2db8` |
+| `PERM-12` | The DocPerm blocks are narrower than Ninety in five places | 2026-09-29 | `676fde8` |
 
 ### `PERM-2` + `PERM-6` — the DocPerm blocks and the scoping layer, in that order
 
@@ -675,6 +710,18 @@ is what pins the DocPerm blocks, so a careless JSON edit now fails the suite rat
 widening access. Three other suites grew by one test each: the data-entry guard, the ownership
 guards, and `send_report`. Suite: **237/237 (174 integration + 63 unit)**. `bench migrate` was
 required and run — the 13 `permissions` arrays are inert without it.
+
+**`PERM-12`** — closing the gap rows did not need code for all five, and one of them was recorded
+wrong. `Archive a To-Do` was never a deviation: Ninety grants archiving to every role *but*
+Observer, and Observer is precisely the role we withhold it from, so the row's "Observer missing"
+was an error in the table, not in the grants. The real defect underneath it is that `To Do` has no
+`archived` field — neither do `Issue` or `Rock` — which is now `DATA-3`. `Delete a Rock` also did
+not need the ownership check the item speculated about: Ninety's Rocks article says in as many words
+that you need not own a Rock to edit it, so a flat `delete` row is the parity grant. `Remove
+Measurables` did need it, and the guard went into `EOSMetric.on_trash` rather than into a DocPerm
+row. Verified against the live DB after `bench migrate`: `delete` on `EOS Metric` and `Rock` is now
+"every role but Observer", on `Issue` and `To Do` all six. Suite: **243/243 (180 integration + 63
+unit)**.
 
 **`DATA-2`** — **the mechanism recorded in the item was wrong; corrected here and in the commit.**
 The item claimed `ensure_scorecard` stops matching, because it looks the scorecard up by
@@ -813,7 +860,8 @@ neither and shows bare hashes.
 reason for existing (it does not evaluate, which is why `{A}/(1-{B})` is not rejected for dividing by
 zero). §4 now lists 29 of 29 public functions and agrees with `AGENTS.md`.
 
-Next item to land: `PERM-12` (S1). Four of its five rows are unblocked JSON edits; start by reading
-the table rather than the prose, and do **not** "fix" `Remove Measurables` with a DocPerm row — that
-one needs an ownership check and waits on `PERM-9`. `PERM-9` after that, since it is a schema change
-that `PARITY-1` is also gated behind. `PERM-3`, `PERM-4` and `PERM-5` are UI-blocked.
+Next item to land: `PERM-9` (S2), the last open item in Block B. It is a schema decision, not a
+permission fix — a Measurable needs a real, reassignable owner field — and `PARITY-1` is gated
+behind it, so read `PERM-9`'s "Done when" before touching `eos_metric.json`. `DATA-3` is the only
+other open correctness item, and it is small: add the `archived` flag to `Rock`, `Issue` and
+`To Do`. `PERM-3`, `PERM-4` and `PERM-5` are UI-blocked.

@@ -51,7 +51,7 @@ bench --site resolv.localhost install-app eos_core       # first-time install (u
 bench --site resolv.localhost execute <path.to.function> --kwargs '{"k":"v"}'   # run one-off
 bench --site resolv.localhost console                    # interactive shell (pipable for tests)
 bench --site resolv.localhost list-doctypes -a           # confirm DocType is registered
-bench run-tests --app eos_core --site resolv.localhost   # full suite (237)
+bench run-tests --app eos_core --site resolv.localhost   # full suite (243)
 bench run-tests --module eos_core.test_permissions --site resolv.localhost   # permission layer alone
 ```
 
@@ -105,7 +105,7 @@ apps/eos_core/
     ├── permissions.py           # team scoping, role precedence, the three DocPerm guards
     ├── roles.py                 # ensure_roles, wired to after_migrate
     ├── hooks.py                 # permission_query_conditions + has_permission wiring
-    ├── test_permissions.py      # 86 tests: 20 hand-written + 66 generated role×DocType
+    ├── test_permissions.py      # 92 tests: 26 hand-written + 66 generated role×DocType
     └── eos_core/doctype/
         ├── eos_metric/          # EOS Metric (Standard) + Table field `entries`
         ├── scorecard_entry/     # Scorecard Entry (Child, istable=1)
@@ -153,7 +153,7 @@ apps/eos_core/
 | Quarterly review | `Quarterly Review` | DONE — team × period snapshot of Rocks/To-Dos/Measurables |
 
 Tests: `bench --site resolv.localhost run-tests --app eos_core` runs the whole suite in one go —
-**174 integration + 63 pure-engine unit = 237 tests**, all green (needs `allow_tests true`, already
+**180 integration + 63 pure-engine unit = 243 tests**, all green (needs `allow_tests true`, already
 enabled on `resolv.localhost`). The split by file:
 
 | Integration test | Count |
@@ -169,14 +169,14 @@ enabled on `resolv.localhost`). The split by file:
 | `doctype/team/test_team.py` | 4 |
 | `doctype/to_do/test_to_do.py` | 5 |
 | `doctype/vto/test_vto.py` | 4 |
-| `eos_core/test_permissions.py` (20 hand-written + 66 generated) | 86 |
-| **Integration total** | **174** |
+| `eos_core/test_permissions.py` (26 hand-written + 66 generated) | 92 |
+| **Integration total** | **180** |
 | `eos_core/test_roles.py` (roles provisioning) | 4 |
 | `eos_core/test_scorecard_engine.py` (unit, frappe-free) | **63** |
 
 Re-derive these with `grep -rc 'def test_'` rather than trusting the table — the documented totals
 have drifted more than once. `test_permissions.py` is the one file where that method undercounts by
-a lot: 20 in the source, 86 in the run, because it generates
+a lot: 26 in the source, 92 in the run, because it generates
 `test_visibility_<doctype>_<role>` for 11 DocTypes × 6 roles. The **total** is the number to trust.
 
 **Permissions are implemented.** The six Ninety roles are created by
@@ -184,7 +184,7 @@ a lot: 20 in the source, 86 in the run, because it generates
 each of them alongside `System Manager`; and `eos_core/permissions.py` (wired via
 `permission_query_conditions` + `has_permission` in `hooks.py`) confines `Manager`, `Team Member` and
 `Observer` to the teams where they hold a `Player` seat, while `Owner`, `Admin` and `Coach` are
-company-wide. The full model, the per-DocType grant table, and the three guards a DocPerm cannot
+company-wide. The full model, the per-DocType grant table, and the four guards a DocPerm cannot
 express are in `docs/architecture.md` §3h.
 
 **Scope comes from `Player`, not a Frappe User Permission.** A user's teams are the `Player` rows
@@ -195,11 +195,11 @@ second competing source of truth for what `validate_owner_team` already resolves
 **Known gaps.** `EOS Metric.owner` is Frappe's immutable document creator, not a business field, so
 a Measurable's owner is fixed at creation, a `Team Member` can never own one, and nothing can be
 reassigned. `Rock` is fine — its business field is `owner_user`. Tracked as `PERM-9`; do not work
-around it by renaming or repurposing `owner`. Separately, **five grants are narrower than Ninety's
-published tables** (`PERM-12`): Team Member lacks `Remove Measurables` and `Delete a Rock`, Observer
-lacks `Delete an Issue`, `Delete a To-Do` and `Archive a To-Do`. Do not close `PERM-12` by adding a
-`delete` DocPerm row for `Remove Measurables` — Ninety scopes that to KPIs the user owns, so it needs
-an ownership check in `validate`.
+around it by renaming or repurposing `owner`. Separately, `To Do`, `Issue` and `Rock` have **no
+`archived` field**, so Ninety's archive and archive view cannot exist for them at all (`DATA-3`).
+Everything else in the roles article now matches the grants in the DB, row for row (`PERM-12`, closed
+2026-09-29, `676fde8`). Do not "simplify" that by deleting the guard in `EOSMetric.on_trash`: Ninety
+scopes Measurable removal to the KPIs the user owns, so a bare `delete` DocPerm row over-grants.
 
 **A DocPerm cannot scope a role to *some* teams.** That is why `eos_core/permissions.py` exists, and
 it is the thing to remember before touching any grant: adding a flat role to a DocType without the
@@ -273,11 +273,11 @@ end-to-end by a user.
 **`docs/TODO.md` is the only live work queue.** Read it before you start and before you finish.
 
 The **code** for Phases 1–5 exists and is tested, but that is not the same as usable — see the
-`code+tests` / `reachable` distinction in `docs/TODO.md` § Rules. As of 2026-09-29: **0 open logic
-bugs**, permissions built (`PERM-1`, `PERM-2`, `PERM-6`, `PERM-7`, `PERM-8`, `PERM-10`, `PERM-11`
-done). Open in Block B: `PERM-12` (five grants narrower than Ninety, S1, next up), `PERM-9`
-(`EOS Metric.owner` is not a real owner field), and `PERM-3` / `PERM-4` / `PERM-5`, which are
-UI-blocked rather than permission-blocked. No UI at all.
+`code+tests` / `reachable` distinction in `docs/TODO.md` § Rules. As of 2026-09-29: **1 open data gap**
+(`DATA-3` — `Rock`, `Issue` and `To Do` have no `archived` field), permissions built (`PERM-1`,
+`PERM-2`, `PERM-6`, `PERM-7`, `PERM-8`, `PERM-10`, `PERM-11`, `PERM-12` done). Open in Block B:
+`PERM-9` (`EOS Metric.owner` is not a real owner field), and `PERM-3` / `PERM-4` / `PERM-5`, which
+are UI-blocked rather than permission-blocked. No UI at all.
 
 Do not reconstruct the work queue from `docs/roadmap.md` or from this file. Both used to carry their
 own copies of the outstanding items, they drifted apart, and that is why the previous setup kept

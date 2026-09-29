@@ -115,7 +115,7 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
       period (overdue judged against `period_end`), and team Measurables as **On Track / Off Track
       counts** (not green/red) via `build_quarterly_review`
 - [x] Tests: `test_rock.py` (5), `test_to_do.py` (5),
-      `test_quarterly_review.py` (5), `test_vto.py` (4) — all green; full suite **237** tests (63 unit + 174 integration) as of 2026-09-29
+      `test_quarterly_review.py` (5), `test_vto.py` (4) — all green; full suite **243** tests (63 unit + 180 integration) as of 2026-09-29
 
 **Definition of done (met):** all 24 Eos Core DocTypes registered (migrate clean, zero orphans);
 create an Organization → auto-populated `V/TO`, add Rocks with milestones → mark complete cascades
@@ -229,11 +229,20 @@ cannot recur.
 
 **Landed 2026-09-29 (commit `83a2db8`):** the six roles now carry DocPerm blocks on all 13 standard
 DocTypes, a team-scoping layer confines `Manager` / `Team Member` / `Observer` to their `Player`
-seats, and three field-level guards cover what a DocPerm cannot express. Open: the Measurable
-Manager surface, the reorder rule, per-team worksheet settings, `PERM-9` — `EOS Metric.owner` is
-Frappe's immutable creator field, so a Measurable's owner can never be reassigned and a Team Member
-can never own one — and `PERM-12`, found by re-reading Ninety's roles tables row by row, where five
-grants are narrower than Ninety publishes.
+seats, and three field-level guards cover what a DocPerm cannot express (a fourth followed in
+`676fde8`).
+
+**Landed 2026-09-29 (commit `676fde8`):** `PERM-12`. The grants now match Ninety's published tables
+row for row. Team Members can delete a Rock and remove a Measurable, Observers can delete an Issue
+and a To-Do, and `PERM-7`'s guard was narrowed to Ninety's documented locked set so a Team Member can
+adjust a goal, a note and a group. The Measurable removal needed a fourth guard rather than a DocPerm
+row, because Ninety scopes it to the KPI you own. The fifth row of the original audit, `Archive a
+To-Do`, was recorded wrongly — Ninety does not grant it to Observer either — and what it exposed is
+`DATA-3`: `To Do`, `Issue` and `Rock` have no `archived` field at all.
+
+Still open in this phase: the Measurable Manager surface, the reorder rule, per-team worksheet
+settings, and `PERM-9` — `EOS Metric.owner` is Frappe's immutable creator field, so a Measurable's
+owner can never be reassigned and a Team Member can never own one.
 
 Ninety's capability matrix:
 
@@ -259,14 +268,15 @@ Ninety's capability matrix:
       DocPerm
 - [x] `send_report` gated on `email`, not reachable by a read-only role (`PERM-10`)
 - [x] Decide `Coach`'s group access, which Ninety's docs omit (`PERM-11`) — granted, as Admin
+- [x] Reconcile the grants with Ninety's published tables (`PERM-12`) — Team Member gained
+      `Remove Measurables` (own-only, via a guard) and `Delete a Rock`; Observer gained
+      `Delete an Issue` and `Delete a To-Do`; `PERM-7`'s field list now matches Ninety's locked set
 - [ ] **Team Members may reorder measurables within a group, even measurables they do not own** (`PERM-3`) — DocPerm half is in place; needs the grid (`UI-1`) and a reorder carve-out in `PERM-7`'s guard
 - [ ] Only Owner / Admin / Coach see the Measurable Manager (`PERM-4`) — DocPerm half is in place; needs the surface
 - [ ] Worksheet-level column visibility and status-colour toggles (team-level settings) (`PERM-5`)
 - [ ] A Measurable's owner is reassignable and distinct from its creator (`PERM-9`) — schema change
-- [ ] Reconcile five grants with Ninety's published tables (`PERM-12`, S1) — Team Member is missing
-      `Remove Measurables` and `Delete a Rock`; Observer is missing `Delete an Issue`,
-      `Delete a To-Do` and `Archive a To-Do`. `Remove Measurables` needs an ownership check, not a
-      DocPerm row, and is gated on `PERM-9`
+- [ ] `Rock`, `Issue` and `To Do` can be archived (`DATA-3`) — the field does not exist, so Ninety's
+      archive and archive view are unimplementable
 
 > **The matrix above is not all DocPerm work.** Verified 2026-09-28: a DocPerm row cannot scope a
 > role to *some* teams. Of the six columns, only **Data entry** is a plain DocPerm grant; the other

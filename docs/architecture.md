@@ -189,63 +189,74 @@ document's visibility past the scoping layer that confines them.
 | `Organization` | Owner, Admin, Coach | company setup is not a team action |
 | `Team`, `Player` | + Manager | Ninety: Managers invite users and create teams |
 | `VTO`, `Scorecard` | + Manager | team and company scorecard settings |
-| `EOS Metric` | create + Manager; write + Team Member; delete + Manager | data entry without settings changes |
+| `EOS Metric` | create + Manager; write + Team Member; delete + Manager, and + Team Member for a Measurable they own | data entry without settings changes; Ninety scopes Measurable removal to the KPI you own |
 | `Measurable Group` | + Manager | Ninety's Groups article; `Coach` decided as Admin, see below |
-| `Issue`, `Level 10 Meeting`, `To Do` | + Team Member | team-collaborative workflows |
-| `Rock` | create/write + Team Member; delete + Manager | Team Members own Rocks |
+| `Issue`, `To Do` | + Team Member, and `delete` + Observer | Ninety's roles table grants `Delete an Issue` and `Delete a To-Do` to all six roles, Observer included |
+| `Level 10 Meeting` | + Team Member | team-collaborative workflow, by analogy — see below |
+| `Rock` | create/write/delete + Team Member | Ninety: *"You don't need to be the Rock's owner to make changes"*, so the grant is flat |
 | `Scorecard Report`, `Quarterly Review` | + Manager | snapshot surfaces are a settings action |
 
-`Rock` delete stops at Manager while create/write goes down to Team Member. **That is a deviation,
-not a narrowing**: Ninety publishes `Delete a Rock` as allowed for every role but Observer, so Team
-Member should have it. Tracked as `PERM-12`.
+One row above is **inference, not citation**, and is recorded as such:
 
-Two rows above are **inference, not citation**, and are recorded as such:
-
-- `Issue`, `Level 10 Meeting` and `To Do` are mapped to "Team Member and above" by analogy with the
-  verified Measurable matrix. Ninety publishes no per-DocType page for them.
+- `Level 10 Meeting` is mapped to "Team Member and above" by analogy with the verified Measurable
+  matrix. Ninety publishes no per-DocType meeting delete table, so no Observer delete was added.
 - `Coach` is granted `Measurable Group` management. Ninety's Groups article lists Owner, Admin,
   Manager, Team Member and Observer and **omits Coach entirely** — a documentation gap. It was
   resolved by Ninety's own pattern elsewhere: a Coach has Admin capabilities "with one exception:
   they cannot be assigned items", and a group is not an item. Revisit if Ninety says otherwise.
 
-**Five rows are narrower than Ninety, and are not yet reconciled (`PERM-12`).** Ninety's roles
-article — ordered Owner | Admin | Manager | Managee | Observer | Implementer — grants Team Members
-`Remove Measurables` and `Delete a Rock`, and grants Observers `Delete an Issue`, `Delete a To-Do`
-and `Archive a To-Do`. We grant none of those five. The first is the interesting one: Ninety scopes it
-to KPIs the Team Member owns (its own footnote: *Team Members cannot → Delete Measurables owned by
-others*), so a bare DocPerm `delete` row would over-grant and is explicitly **not** the fix — it needs
-an ownership check, which needs `PERM-9`.
+**Every row now matches Ninety's published tables (`PERM-12`, closed 2026-09-29).** That audit began
+with five rows narrower than Ninety — Team Members missing `Remove Measurables` and `Delete a Rock`,
+Observers missing `Delete an Issue`, `Delete a To-Do` and `Archive a To-Do`. Four were real and are
+fixed. The fifth was recorded wrongly: Ninety grants archiving to every role **but** Observer, and
+Observer is exactly the role we withhold it from, so there was nothing to grant. What that row
+actually exposed is a missing field rather than a missing grant — `To Do`, `Issue` and `Rock` carry
+no `archived` flag at all, tracked as `DATA-3`.
 
-### The three rules a DocPerm cannot express
+The `Remove Measurables` row could not be closed with a DocPerm edit. Ninety scopes it to KPIs the
+user owns (its own footnote: *Team Members cannot → Delete Measurables owned by others*), so a bare
+`delete` row would over-grant. See guard 4 below.
+
+### The four rules a DocPerm cannot express
 
 Data entry in this app is the `entries` child table of `EOS Metric`, and Frappe gates child rows on
 the **parent's** `write`. So the grant a Team Member needs in order to enter data also hands them
 write on every field of the Measurable. Ninety reserves some of those fields: *"'Edit Measurable
 settings' refers to a Measurable's title, unit type, and ownership — locked to Manager and above."*
-Three guards in `eos_core/permissions.py` close that gap:
+Four guards in `eos_core/permissions.py` close that gap:
 
-1. `validate_data_entry_only` refuses any change outside `entries` to a user who cannot manage
-   metrics. It must run **first** in `EOSMetric.validate`, before `validate_range_target` rewrites a
+1. `validate_data_entry_only` refuses any change a user without the metrics role should not make. It
+   must run **first** in `EOSMetric.validate`, before `validate_range_target` rewrites a
    `0` `min_value`/`max_value` to `None` — that normalisation would otherwise read as a settings change
-   and throw on every data entry. **This is broader than Ninety**: the locked set is title, unit type
-   and ownership, whereas the guard also blocks the goal fields, `description`, `group` and `archived`,
-   all of which Ninety lets a Team Member change. Narrowing it is `PERM-12`.
+   and throw on every data entry. The test is an **allow-list** (`TEAM_MEMBER_EDITABLE_FIELDS`:
+   `entries`, `description`, `group`, `min_value`, `max_value`, `target_value`) rather than a deny-list,
+   so a field added later stays locked to Manager and above until Ninety has been checked for it.
+   Ninety's own footnote is what fixes the boundary: it excludes *Set new future Goal, Set custom
+   Goal or note, and entering forecasted future values* from the locked set, and its roles table gives
+   Team Members `Adjust goals of Measurables` and `Organize Scorecards`.
 2. `validate_content_owner` refuses a `Coach` or `Observer` as the owner of a Measurable or a Rock.
    Ninety repeats the rule for Measurables, Rocks, To-Dos, Issues and Headlines; a DocPerm cannot see
    *which user* a field points at.
 3. `ScorecardReport.send_report` checks the `email` permission itself. Frappe's `run_doc_method`
    only checks **read**, so a read-only role can invoke any whitelisted method on a document it can
    see — and this one sends mail before its own save would fail on the missing write.
+4. `validate_content_deletion` runs in `EOSMetric.on_trash`. A DocPerm `delete` row is all-or-nothing
+   per role, but Ninety lets a `Manager` or `Team Member` remove only a Measurable they own, so
+   `Manager` and `Team Member` are refused on anyone else's while `Owner`, `Admin` and `Coach` are not.
+   Because `owner` is Frappe's creator field, "own" currently means "created" — see the gap below.
 
 ### The known gap: `EOS Metric.owner` is not a business field
 
 `owner` collides with Frappe's document owner, which is in `meta.get_set_only_once_fields()`. Frappe
-sets it to the creating user and refuses any later change. So a Measurable's owner is always its
-creator, which means a `Team Member` — who has no `create` on `EOS Metric` — can never own one, and
-there is nothing for a Measurable Manager's "Reassign" to act on. `validate_owner_team` is therefore
-really a rule about who may create a Measurable on a team. `Rock` is unaffected: its business field
-is `owner_user`, which is free. Tracked as `PERM-9`; the fix is a separate owner field, not a rename
-of `owner`.
+overwrites it with the session user on insert and refuses any later change — the insert path is
+unconditional (`frappe/model/base_document.py:753`, `if not self.creation: self.owner = self.modified_by
+= frappe.session.user`), so passing an `owner` to `insert()` has no effect at all. A Measurable's owner
+is therefore always its creator, which means a `Team Member` — who has no `create` on `EOS Metric` —
+can never own one, and there is nothing for a Measurable Manager's "Reassign" to act on.
+`validate_owner_team` is really a rule about who may create a Measurable on a team. `Rock` is
+unaffected: its business field is `owner_user`, which is free. Tracked as `PERM-9`; the fix is a
+separate owner field, not a rename of `owner`. Guard 4 above works around it correctly — "own" reads
+as "created" — but that is a coincidence, not a design.
 
 ## 3c. Scorecards, Groups & Formulas (Phase 3 — implemented)
 
@@ -715,5 +726,14 @@ Phase status is in `docs/roadmap.md`; the live work queue with stable IDs is in
 - The database holds **test residue only** — roughly one `Organization`, `Team`, `Player` and
   `Scorecard`. Nothing has been exercised end-to-end by a real user, so "the tests pass" is not
   evidence that a workflow works.
+- **Ninety contradicts itself about Observers and deletion, and we follow the tables.** Its role
+  summary describes an Observer as *"View-only access within assigned teams"*, while the same
+  article's per-tool tables publish `Delete an Issue ✅` and `Delete a To-Do ✅` for Observer. We
+  grant `delete` on `Issue` and `To Do` to Observer, because the tables are the specific statement
+  and the summary is the general one. If Ninety meant Observers to be read-only everywhere, this is
+  the one grant to take back.
+- **`To Do`, `Issue` and `Rock` cannot be archived at all.** Ninety gives every role but Observer an
+  `Archive a To-Do` row and ships an archive view for all three tools, but archiving is a write to an
+  `archived` flag and only `EOS Metric` and `Measurable Group` carry one. Queued as `DATA-3`.
 - Known bugs and the full unwired list are queued in [`TODO.md`](TODO.md); the audit that produced
   them is `docs/roadmap.md` § "Known gaps in Phases 1–5".
