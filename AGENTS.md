@@ -24,15 +24,64 @@ Read `docs/architecture.md` and `docs/roadmap.md` after this file.
 
 Read in this order, then work from the queue in `docs/TODO.md`:
 
-1. This file — rules, commands, gotchas.
+1. This file — rules, commands, gotchas, and the execution workflow below.
 2. `docs/TODO.md` — **the only live work queue**. Pick the top `TODO` item and follow its
    "Done when" line.
-3. `docs/roadmap.md` — phase history and the audit behind the queue.
-4. `docs/architecture.md` — domain model, engine contract, terminology mapping.
-5. `eos_core/scorecard_engine.py` — frappe-free pure logic; the home for all new pure functions.
+3. `docs/execution/<TODO-ID>.md` — **if the item you picked has one**, that is your plan. See
+   *Executing work* below.
+4. `docs/roadmap.md` — phase history and the audit behind the queue.
+5. `docs/architecture.md` — domain model, engine contract, terminology mapping.
+6. `eos_core/scorecard_engine.py` — frappe-free pure logic; the home for all new pure functions.
 
 Never rely on a "DONE" marker in `roadmap.md` to mean a feature is usable — that marker only ever
 meant "the code exists and is unit-tested".
+
+## Executing work
+
+`docs/TODO.md` and `docs/execution/` answer different questions, and the split is the point.
+
+- **`docs/TODO.md` is the work queue.** It says what is outstanding, at what severity, in what order.
+  It is never a task list of small steps, and a micro-task must never be promoted to a new queue
+  item. IDs are stable and are never renumbered or deleted.
+- **`docs/execution/<TODO-ID>.md` is the decomposition of one item.** Large items are too big for one
+  context window, so each has a plan whose tasks are each small enough to understand, inspect,
+  implement, test and verify in a single session. `docs/execution/README.md` is the index and the
+  conventions.
+
+Rules for a session that starts work:
+
+1. **Select the top unblocked `TODO` item** by the queue's own rules: work the blocks in order,
+   within a block S1 first, and never start an item whose stated dependency is still open. Severity
+   is triage, not order, and neither is a licence to reorder the queue.
+2. **If the item has an execution plan, follow it.** Read the whole file first, then continue the
+   task named in its `## Current Task` section. That section is the resume point — a new session
+   should never have to guess which task was in flight.
+3. **If the item has no execution plan, it is small enough to do in one session** straight from its
+   `TODO.md` text. Do not create a plan for it.
+4. **Work one task at a time and finish it before starting the next.** A half-finished task plus a
+   half-finished second one is what forces context compaction, which is exactly what the plans exist
+   to prevent.
+5. **Do not deliberately approach the context limit.** If a task is going to need one, **stop and
+   split it first** — add `UI-1.4a` / `UI-1.4b` to the plan, give each its own acceptance criteria
+   and verification, point `## Current Task` at the first, and record why under `## Discovered
+   Issues`. Splitting is a normal outcome, not a failure. Carrying a large task into compaction is.
+6. **Persist state as you go.** After each task: set its `Status` to `DONE`, paste the real
+   verification output into `## Completed`, and advance `## Current Task`. A future session must be
+   able to resume from the file alone, with no memory of this one.
+7. **Run the task's verification before marking it done, and paste the result.** "Should work" is
+   not a result. Where a task changes behaviour, confirm the test fails without the change. A
+   `*.json` edit — including a `permissions` block — needs `bench migrate` before the tests mean
+   anything.
+8. **Mark a queue item complete only after every clause of its "Done when" is verified**, with the
+   run's real output as evidence. `code+tests` and `reachable` are separate boxes and both must be
+   ticked. If only part of an item landed, say which part in `TODO.md` rather than closing the item.
+9. **Do not start unrelated work.** Found a bug, a stale doc or a missing item while working? Give it
+   a new `TODO.md` ID and record it under `## Discovered Issues` in the plan. Fixing it "while I am in
+   here" is how a session ends up with a commit that mixes two things. The one exception is a
+   prerequisite the plan itself names.
+10. **Never re-open a settled decision.** The five locked Ninety-parity decisions are in § Ground
+    rules. Where a plan's *Decisions to settle* is a real open question, resolve it from Ninety's
+    documented behaviour and write the answer down — do not design it from the tidier option.
 
 ## Environment
 
@@ -98,6 +147,9 @@ apps/eos_core/
 ├── README.md
 ├── docs/
 │   ├── TODO.md                  # THE live work queue — read this to pick up work
+│   ├── execution/               # per-item execution plans — read the one for the item you picked
+│   │   ├── README.md            # index + conventions for the plans (task sizing, split rule)
+│   │   └── <TODO-ID>.md         # one plan per large item: tasks, acceptance criteria, state
 │   ├── architecture.md          # domain + data model + scoring logic (READ FIRST)
 │   └── roadmap.md               # phase history + the audit behind the queue
 └── eos_core/
@@ -106,6 +158,10 @@ apps/eos_core/
     ├── roles.py                 # ensure_roles, wired to after_migrate
     ├── hooks.py                 # permission_query_conditions + has_permission wiring
     ├── test_permissions.py      # 96 tests: 30 hand-written + 66 generated role×DocType
+    ├── public/{js,css}/         # EMPTY today — the app has no UI; Block C is the gap
+    ├── templates/
+    │   ├── emails/weekly_scorecard_report.html
+    │   └── pages/               # empty; the app's page scaffold, unused
     └── eos_core/doctype/
         ├── eos_metric/          # EOS Metric (Standard) + Table field `entries`
         ├── scorecard_entry/     # Scorecard Entry (Child, istable=1)
@@ -276,11 +332,22 @@ end-to-end by a user.
   the thing that was wrong.
 - `Measurable Group` display names are only unique *per Scorecard*, so key any group lookup by the
   group's hash `name`, never by `group_name`.
+- **`unique: 1` is a single-column `Check` on a `DocField`**, valid only for `Data`, `Link` and
+  `Read Only` fieldtypes (`frappe/core/doctype/doctype/doctype.py:1460-1484`). There is **no composite
+  unique flag**, so a `team` × `timeframe` or `team` × `week_start_date` identity cannot be expressed
+  in a `*.json` and has to come from a patch. Worse, marking a `team` column unique outright is wrong:
+  a team legitimately holds four `Scorecard` rows, one per timeframe, and eight weekly `Scorecard
+  Report` rows before the month rolls over. This is `DEBT-7`; knowing it before you try is cheaper.
+- **`autoname: "field:<name>"` silently sets `unique: 1` on that field** during DocType validation
+  (`frappe/core/doctype/doctype/doctype.py:1125-1136`). So `EOS Metric.metric_name`,
+  `Issue.issue_name`, `Team.team_name`, `Player.player_name` and `Organization.organization_name` are
+  already uniquely indexed whether or not their JSON says so — a `grep` for `unique` in the JSON
+  under-reports.
 
 ## What the product owner expects in how you work
 
-- The owner is a developer, **not an EOS domain expert**. They care about what actually works, and
-  the roadmap previously hid the difference between "code written" and "feature usable". Keep
+- The owner is a developer, **not an EOS domain expert**. They care about what actually works, and the
+  roadmap previously hid the difference between "code written" and "feature usable". Keep
   reporting that distinction honestly; never let documentation overstate completion.
 - They value **verified** claims. Prefer running the code, querying the DB, or fetching the real
   Ninety docs over asserting from memory, and flag anything you could not verify.
@@ -290,6 +357,7 @@ end-to-end by a user.
 ## What to build next
 
 **`docs/TODO.md` is the only live work queue.** Read it before you start and before you finish.
+`docs/execution/<TODO-ID>.md` is the plan for the item you picked, if it has one.
 
 The **code** for Phases 1–5 exists and is tested, but that is not the same as usable — see the
 `code+tests` / `reachable` distinction in `docs/TODO.md` § Rules. As of 2026-09-29: **Block B is
@@ -298,10 +366,20 @@ complete** — `PERM-1`, `PERM-2`, `PERM-6`, `PERM-7`, `PERM-8`, `PERM-9`, `PERM
 field). `PERM-3` / `PERM-4` / `PERM-5` are open but **UI-blocked**, not permission-blocked. No UI at
 all.
 
+**Block C is the largest gap and `UI-1` is its spine.** `eos_core/public/js` and
+`eos_core/public/css` are empty directories, `hooks.py` sets no `doctype_js` and no `app_include_js`,
+and Frappe v16 has no Worksheet Page — the scaffold's `eos_core/templates/pages/` is empty. Four
+endpoints are whitelisted and nothing in the UI calls them.
+
+**`docs/execution/` now holds a plan for every item that is too large for one context window.** Where
+a plan exists, follow it; where one does not, the item is small enough to do straight from its
+`TODO.md` text. `docs/execution/README.md` is the index and states the task-sizing and splitting
+rules.
+
 Do not reconstruct the work queue from `docs/roadmap.md` or from this file. Both used to carry their
 own copies of the outstanding items, they drifted apart, and that is why the previous setup kept
 producing duplicate and stale todos. `roadmap.md` is the phase *history*; `architecture.md` is the
-*model*; `TODO.md` is the *tasks*.
+*model*; `TODO.md` is the *tasks*; `docs/execution/` is the *decomposition*.
 
 Re-read `docs/roadmap.md` and `docs/architecture.md` before starting so naming and data flow stay
 consistent, and keep every behavioural decision grounded in Ninety's documented behaviour rather

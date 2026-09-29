@@ -4,6 +4,10 @@
 `docs/architecture.md` is the *model*. Neither is a task list. If work is not in this file, it is
 not queued.
 
+**This file is the queue, not the tasks.** Items that are too large for one context window have an
+execution plan in `docs/execution/<TODO-ID>.md`; `docs/execution/README.md` is the index. Read the
+plan for the item you pick — do not plan it again here.
+
 Last full audit: **2026-09-28** — every item below was re-verified against the code, the live
 `resolv.localhost` database, and a 129-test run. 129/129 green at that date.
 
@@ -74,6 +78,29 @@ Lesson for the next pass: a re-verification pass can *introduce* drift as easily
 re-derive each number from the code rather than editing the previous pass's number — and when a
 header count and a status count disagree, the status count is the one that survives.
 
+**Planning pass, 2026-09-29 (documentation only, no code).** Every large open item was decomposed
+into `docs/execution/<TODO-ID>.md`, and this file was linked to them. **No status, severity or
+dependency was changed and nothing was marked done** — the only structural edits are the `UI-8` item
+below, the plan pointers, and three recorded findings that came out of reading the code during
+planning:
+
+- **`UI-8` is new**, and it is a real gap rather than a reshuffle: `PERM-4` says the Measurable
+  Manager is Owner / Admin / Coach only *and* that "Block C has no item for it", so `PERM-4` could
+  never be closed. Counts are therefore **31 open, 18 done** — one more than the 30/18 above, and
+  the 18 is untouched.
+- **`DEBT-7`'s "Done when" is not achievable as written** for four of its five DocTypes: Frappe has
+  no composite unique flag. Recorded as a scope note under the item rather than silently narrowed.
+- **`DEBT-9`'s "Done when" presupposes `ruff`**, which is configured in `.pre-commit-config.yaml` and
+  `pyproject.toml` but is not installed in this bench. Also recorded as a note under the item.
+- **`DEBT-6`'s scope note now has a decision** — the ten Child tables are in scope, and the twelve
+  controllers are enumerated. The item's own count was left at "three" in its title, which the scope
+  note already flagged.
+- `UI-1`'s "a Worksheet Page" wording describes a DocType Frappe v16 does not have; noted in Block C
+  and in the plan, with a `Page` + `Workspace` route proposed.
+
+The 19 missing-newline figure in `DEBT-9` was re-derived and is correct. Suite still **248 (185
+integration + 63 unit)**; nothing was run or migrated, because nothing in the app changed.
+
 ## Rules for agents working this queue
 
 These exist because the previous setup had three competing lists in three formats, and they drifted.
@@ -100,6 +127,45 @@ Follow them exactly.
    `AGENTS.md` § Ground rules. Do not relitigate them.
 7. **Severity is triage, not order.** `S1` = a user sees wrong data or is blocked. `S2` = a
    workflow breaks. `S3` = debt or polish. Work the blocks in order; within a block, S1 first.
+8. **This file holds one line per item, not a task list.** Where an item is too large for one
+   session, its breakdown lives in `docs/execution/<TODO-ID>.md` and is linked from the item. Do not
+   paste the plan's tasks in here, and do not edit an item's scope to record progress — set the
+   task's status in the plan instead. A micro-task is never promoted to a new queue item.
+
+## Execution plans
+
+`docs/execution/` decomposes the large items. It is **not** a second queue and must never disagree
+with this one: the item text, ID, severity and dependency here are authoritative, and a plan may only
+break one of them down, never restate it differently.
+
+| Item | Plan | Note |
+|---|---|---|
+| `DATA-3` | [`DATA-3.md`](execution/DATA-3.md) | the one open item in Block A; smallest plan in the set |
+| `PERM-3` | [`PERM-3.md`](execution/PERM-3.md) | DocPerm half already done; the grid is the gap |
+| `PERM-4` | [`PERM-4.md`](execution/PERM-4.md) | needs `UI-8` |
+| `PERM-5` | [`PERM-5.md`](execution/PERM-5.md) | JSON-only; gates `UI-5` |
+| `UI-1` | [`UI-1.md`](execution/UI-1.md) | the spine of Block C; gates most of the rest |
+| `UI-2` | [`UI-2.md`](execution/UI-2.md) | after `UI-1` |
+| `UI-3` | [`UI-3.md`](execution/UI-3.md) | after `UI-1`; cheapest parity win |
+| `UI-4` | [`UI-4.md`](execution/UI-4.md) | after `UI-1` |
+| `UI-5` | [`UI-5.md`](execution/UI-5.md) | after `UI-1` and `PERM-5` |
+| `UI-6` | [`UI-6.md`](execution/UI-6.md) | after `UI-1` and `DATA-3` |
+| `UI-7` | [`UI-7.md`](execution/UI-7.md) | independent of `UI-1`; needs `DEBT-11` |
+| `UI-8` | [`UI-8.md`](execution/UI-8.md) | the Measurable Manager; independent of `UI-1` |
+| `PARITY-1` | [`PARITY-1.md`](execution/PARITY-1.md) | unblocked now `PERM-9` is closed |
+| `PARITY-2` | [`PARITY-2.md`](execution/PARITY-2.md) | verify Ninety's count before implementing |
+| `PARITY-3` | [`PARITY-3.md`](execution/PARITY-3.md) | distinct from the deferred forecasting |
+| `PARITY-4` | [`PARITY-4.md`](execution/PARITY-4.md) | shares helpers with `PARITY-3` |
+| `PARITY-5` | [`PARITY-5.md`](execution/PARITY-5.md) | after `UI-1` |
+| `PARITY-6` | [`PARITY-6.md`](execution/PARITY-6.md) | design first; unblocks `DEBT-11`'s sibling work |
+| `DEBT-6` | [`DEBT-6.md`](execution/DEBT-6.md) | scope note resolved in the plan |
+| `DEBT-7` | [`DEBT-7.md`](execution/DEBT-7.md) | **also closes `DEBT-12`**; four of the five need a patch |
+| `DEBT-9` | [`DEBT-9.md`](execution/DEBT-9.md) | `ruff` is configured but not installed |
+
+`PERM-9` is closed and keeps its plan as a historical record; it is the reference for how a completed
+item's plan is written. The remaining open items — `DOC-3`, `DEBT-1`, `DEBT-2`, `DEBT-4`, `DEBT-5`,
+`DEBT-8`, `DEBT-10`, `DEBT-11`, `DEBT-12` — have no plan, which is deliberate: they are small enough
+to do in one session straight from their text above.
 
 ## Verification commands
 
@@ -151,7 +217,7 @@ longer gated behind `PERM-9` and is now the largest correctness-parity item left
 ## Block A — Correctness (1 open, 7 done)
 
 ### DATA-3 — S2 · `Rock`, `Issue` and `To Do` have no `archived` field, so Ninety's archive cannot exist
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Found 2026-09-29 while closing `PERM-12`**
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Found 2026-09-29 while closing `PERM-12`** · plan [`DATA-3.md`](execution/DATA-3.md)
 **Where** `eos_core/eos_core/doctype/{rock,issue,to_do}/*.json`
 **Problem** Ninety's roles table gives every role but Observer an `Archive a To-Do` row, and its
 To-Do, Issue and Rocks tools each have an `Archive …` and a `View archive` surface. Archiving is a
@@ -217,7 +283,7 @@ do it. No bulk-archive surface exists yet, which is `PERM-4` and `UI-6`. `Rock`,
 have no `archived` field at all, which is `DATA-3`.
 
 ### PERM-3 — S2 · Team Members may reorder measurables they do not own
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-29**
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-29** · plan [`PERM-3.md`](execution/PERM-3.md)
 **Note** this is an explicit Ninety rule and is *not* what a naive "owner-only" DocPerm gives you.
 Ninety: *"Team Members can also reorder Measurables within a group — even Measurables they do not
 own."* It also interacts with `Measurable Group.order`, where `0` means "unset" rather than "first"
@@ -239,7 +305,7 @@ someone else inside its group, is refused outside it, and cannot rename or delet
 case. **Now blocked on `UI-1`.**
 
 ### PERM-4 — S2 · Only Owner / Admin / Coach see the Measurable Manager
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-29**
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-29** · plan [`PERM-4.md`](execution/PERM-4.md)
 Ninety: *"Accessible only to Admins, Owners, or Coaches/Implementers. Managers and Team
 Members/Managees cannot access the Measurable Manager."*
 **Status after `PERM-2` — only half is DocPerm-covered, and the two cases differ.** Verified live:
@@ -257,7 +323,7 @@ asserts each of the six roles sees or does not see it — with a fourth assertio
 still create a measurable from the scorecard while being denied the Manager surface.
 
 ### PERM-5 — S3 · Worksheet column visibility and status-colour toggles
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · plan [`PERM-5.md`](execution/PERM-5.md)
 **Scope** per-team settings for which columns are visible and whether status colours show.
 `PERM-6` settled where these settings *live* (a team-scoped setting row read by the grid), which
 this item still has to build.
@@ -427,12 +493,17 @@ change. Suite: **243/243 (180 integration + 63 unit)**; `bench migrate` required
 
 ---
 
-## Block C — Phase 7: UI (7 items, 0% done — the largest gap)
+## Block C — Phase 7: UI (8 items, 0% done — the largest gap)
 
 `eos_core/public/` contains only `.gitkeep`. `hooks.py` has no `doctype_js` and no `doc_events`.
 Four whitelisted endpoints exist and nothing in the UI calls them — only two of them
 have an item below (`UI-2` for the not-yet-whitelisted `create_issue_from_metric`, `UI-3` for
 `get_rollup_view`); the other two are `UI-7`.
+
+**Frappe v16 has no Worksheet Page.** `UI-1`'s original "a Worksheet Page" wording describes a
+DocType that does not exist in this version; the plan uses a core `Page` + `Workspace` route and
+`doctype_js` instead. Frappe `16.31.0` has no Worksheet Page DocType, so a custom `Page` is the
+reproducible host. Nothing in Block C may depend on `Worksheet Page`.
 
 **Changed by Block B.** The grid can now be built against a real permission model: a
 `permission_query_conditions` layer already scopes every team-scoped DocType, and
@@ -442,42 +513,50 @@ permissions) or the grid will show other teams' measurables, and `UI-5`'s per-te
 have a defined home (`PERM-5`).
 
 ### UI-1 — S2 · Scorecard grid (the core Ninety screen)
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · plan
+[`UI-1.md`](execution/UI-1.md)
 **Scope** a Worksheet Page plus a whitelisted grid endpoint over `EOS Metric` + `Scorecard Entry`.
 Depends on `PERM-2` for column-level visibility, and is the prerequisite for most of the rest of
-this block.
+this block. **As of 2026-09-29:** no Worksheet Page exists in Frappe v16 — see the block header and
+`docs/execution/UI-1.md` for the `Page` + `Workspace` route that replaces it.
 
 ### UI-2 — S2 · UI trigger for "Make it an Issue"
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · plan
+[`UI-2.md`](execution/UI-2.md) · after `UI-1`
 **Where** `create_issue_from_metric` works and is tested, but is **not** whitelisted and has no
 button. Fix `BUG-1` first, or the button will show wrong numbers.
 **Done when** an off-track metric in the grid has a "Make it an Issue" action, the Issue is created
 from the browser, and the streak in the description matches `BUG-1`'s corrected behaviour.
 
 ### UI-3 — S2 · "View by" dropdown wired to `get_rollup_view`
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · plan
+[`UI-3.md`](execution/UI-3.md) · after `UI-1`
 **Note** the endpoint is built, correct and tested (11 tests in `test_scorecard.py`). Only the UI is
 missing. This is the cheapest parity win in the project.
 **Done when** a `Week / Month / Quarter / Year` control on the grid renders the rolled-up columns,
 and the weekly Goal column is visibly *not* aggregated (that asymmetry is Ninety's, not a bug).
 
 ### UI-4 — S3 · Trends view
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · plan
+[`UI-4.md`](execution/UI-4.md) · after `UI-1`
 **Scope** Ninety's read-only, filterable list narrowed to off-track measurables. Only the
 `count_consecutive_off_track` helper exists today.
 
 ### UI-5 — S3 · Scorecard column toggles
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · plan
+[`UI-5.md`](execution/UI-5.md) · after `UI-1` and `PERM-5`
 **Scope** Owner / Goal / Average / Total visibility, "show current period", default timeframe, and
 the per-team override of company defaults (depends on `PERM-5`).
 
 ### UI-6 — S3 · Bulk UX
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · plan
+[`UI-6.md`](execution/UI-6.md) · after `UI-1` and `DATA-3`
 **Scope** import/export XLSX/CSV, bulk paste, bulk archive / duplicate / share.
 
 ### UI-7 — S2 · Buttons for the three built endpoints nothing can reach
 **Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · *found 2026-09-28 while
-answering "is Phase 5 done?", not in any prior list*
+answering "is Phase 5 done?", not in any prior list* · plan [`UI-7.md`](execution/UI-7.md) · needs
+`DEBT-11`
 **Where** `rock.mark_complete`, `rock.get_rock_summary` (`rock/rock.py`),
 `scorecard_report.send_report` (`scorecard_report/scorecard_report.py`)
 **Problem** all three are `@frappe.whitelist()` and covered by tests, but no user can invoke any of
@@ -504,12 +583,27 @@ browser pass too, because an assertion cannot prove a button is clickable.
 **Note** `DEBT-11` (`Rock.progress` returning `int` rather than `float`) surfaces in this surface
 because `get_rock_summary` serialises that value straight to JSON. Fix it with, or before, this item.
 
+### UI-8 — S2 · Measurable Manager: the only Ninety surface with no queue item
+**Status** `TODO` · code+tests ☐ · reachable ☐ · *found 2026-09-29, not in any prior list* · plan
+[`UI-8.md`](execution/UI-8.md) · independent of `UI-1`; gates `PERM-4`
+**Why it was missing** `PERM-4` says the Measurable Manager is visible only to Owner / Admin / Coach,
+and its own text says *"Block C has no item for it"* — so a permission item was left permanently
+unclosable by a UI item that was never written. This is that item.
+**Scope** the Ninety Measurable Manager: a role-filtered grid of Measurables for a user to
+reorder, reassign owners on, set goals from, and archive — i.e. the management counterpart to
+`UI-1`'s data-entry grid. Reuse the `Page` + `Workspace` + `doctype_js` route `UI-1` establishes, and
+the per-role DocPerm blocks `PERM-2` already installed.
+**Done when** a user in Owner / Admin / Coach opens the Manager and sees only the Measurables the
+permissions allow, and a `Team Member` or `Observer` gets no route to it — and `PERM-4` can then be
+closed. A test that the grid endpoint is role-scoped is *not* sufficient alone; record a manual
+browser pass for each of the two denied roles, as `UI-7` requires.
+
 ---
 
 ## Block D — Ninety parity features with no representation at all (6 items)
 
 ### PARITY-1 — S2 · Add Existing Measurable + Duplicate
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · plan [`PARITY-1.md`](execution/PARITY-1.md)
 **Scope** share one Measurable across teams with synced data.
 **Note** `PERM-6` makes this harder than it looks: a Measurable shared across two teams can only
 have one `team`, so the sharing model has to answer which team a shared Measurable's *entries* belong
@@ -517,29 +611,29 @@ to before the scoping rule can stay true. Do not start before `PERM-9` — a sha
 needs the reassignable owner that item introduces.
 
 ### PARITY-2 — S3 · Auto-seeded default measurables
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · plan [`PARITY-2.md`](execution/PARITY-2.md)
 **Scope** on account creation. Ninety ships 17 (or the 20 financial ones, depending on doc version)
 — **verify the count against Ninety's current docs before implementing, do not take 17 or 20 on
 trust from the roadmap.**
 
 ### PARITY-3 — S2 · Set New Goal + Set Custom Goal
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · plan [`PARITY-3.md`](execution/PARITY-3.md)
 **Scope** a goal from a date forward, and a custom goal for a single period. This is distinct from
 the per-period *forecasting* that `roadmap.md` Phase 3 deferred.
 
 ### PARITY-4 — S3 · Backfilling
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · plan [`PARITY-4.md`](execution/PARITY-4.md)
 **Scope** create periods that predate a Measurable's creation date.
 
 ### PARITY-5 — S3 · Lightning-bolt indicator on formula ("Smart") measurables
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · plan [`PARITY-5.md`](execution/PARITY-5.md)
 **Note** `is_manual` already matches Ninety's Manual Override requirement; only the indicator is
 missing.
 **Done when** a `is_smart` measurable displays Ninety's lightning-bolt marker, and a manually
 overridden entry is distinguishable from a computed one.
 
 ### PARITY-6 — S3 · Connectors (Jira, Salesforce, Google Sheets)
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · plan [`PARITY-6.md`](execution/PARITY-6.md)
 **Scope** via Webhook / ServerScript. Do not start before `PERM-2` — connector credentials are a
 permission surface.
 **Done when** a written design exists naming which Ninety connector behaviour is in scope, and the
@@ -606,7 +700,7 @@ which normalises a Nov/Dec anchor to a Q4 start first. So no test covers it.
 **Done when** each is either wired or deleted, the test is renamed, and a real rollover case exists.
 
 ### DEBT-6 — S3 · Three empty controllers with no tests
-**Status** `TODO` · **Verified 2026-09-28**
+**Status** `TODO` · **Verified 2026-09-28** · plan [`DEBT-6.md`](execution/DEBT-6.md)
 **Where** `organization/organization.py`, `scorecard_entry/scorecard_entry.py` (`player/player.py` was
 resolved by `DATA-1` on 2026-09-28 — it now validates one seat per person per team and has
 `test_player.py`, 4 tests)
@@ -621,7 +715,7 @@ silently folded in, per the "add a new item with a new ID" rule.
 it should have. Empty controllers are fine; untested *and* undocumented is not.
 
 ### DEBT-7 — S3 · Five DocTypes enforce uniqueness only in Python, with no DB index
-**Status** `TODO` · **Verified 2026-09-28**
+**Status** `TODO` · **Verified 2026-09-28** · plan [`DEBT-7.md`](execution/DEBT-7.md)
 **Where** `rock.json`, `scorecard.json`, `level_10_meeting.json`, `scorecard_report.json`,
 `quarterly_review.json`
 **Problem** all five are autonamed from an inherently unique key, but the column carries no
@@ -632,6 +726,15 @@ By contrast `tabTo Do` (`todo_name`), `tabVTO` (`organization`) and `tabEOS Metr
 all have real `Non_unique=0` indexes.
 **Done when** the unique fields are flagged and `bench --site resolv.localhost migrate` has been run
 and `show index` confirms the index exists.
+**Scope note (2026-09-29 planning)** the **Done when is not achievable as written for four of the
+five.** Frappe's `unique` is a single-column `Check` on a `DocField`, valid only for `Data`, `Link`
+and `Read Only` fieldtypes (`frappe/core/doctype/doctype/doctype.py:1460-1484`) — there is **no
+composite unique flag**. Only `Rock.rock_name` is unique on its own; the other four identities are
+`team` × `timeframe`, `team` × `meeting_date`, `team` × `week_start_date` and `team` ×
+`period_start`. Marking the `team` column unique outright would be **wrong**, since a team
+legitimately holds four `Scorecard` rows and eight weekly `Scorecard Report` rows. Those four need a
+composite index created by a patch under `[post_model_sync]`, with a duplicate pre-check. Recorded
+here rather than silently narrowed; the plan is `docs/execution/DEBT-7.md`.
 
 ### DEBT-8 — S3 · `Quarterly Review` rock scoping is under-specified
 **Status** `TODO` · **Verified 2026-09-28**
@@ -643,12 +746,17 @@ intended, never written down); and a rock with no milestones contributes `progre
 **Done when** both behaviours are decided and recorded in `docs/architecture.md` §3f.
 
 ### DEBT-9 — S3 · Formatting debt
-**Status** `TODO` · **Verified 2026-09-28**
+**Status** `TODO` · **Verified 2026-09-28** · plan [`DEBT-9.md`](execution/DEBT-9.md)
 **Problem** `eos_core/eos_core/doctype/vto/vto.py` is the only Python file indented with 4 spaces,
 violating `.editorconfig` and `pyproject.toml` (`indent-style = "tab"`); `ruff format` would rewrite
 it wholesale. **19** `.py` files are missing a final newline.
 **Done when** `ruff format` runs clean and `git diff` is reviewed line by line — the vto.py
 reindent will show as a whole-file change.
+**Note (2026-09-29 planning)** the **Done when presupposes a tool that is not installed.**
+`.pre-commit-config.yaml` pins `ruff` `v0.14.10` and `pyproject.toml` sets the config, but neither
+`ruff` nor `pre-commit` is on `env/bin` in this bench. Pin the version when installing it, or a
+different version will churn the diff this item is supposed to be a careful review of. The `19`
+was re-derived and is correct: 19 of the 74 tracked `.py` files have no final newline.
 
 ### DEBT-10 — S3 · Three orphan `.pyc` files from deleted scratch scripts
 **Status** `TODO` · **Verified 2026-09-28** · *found 2026-09-28*
