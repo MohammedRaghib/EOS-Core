@@ -36,6 +36,7 @@ ALL = EOS_ROLES
 COMPANY = COMPANY_WIDE_ROLES
 MANAGE = MANAGE_METRICS_ROLES
 EDITORS = ("Owner", "Admin", "Coach", "Manager", "Team Member")
+NOT_OBSERVER = tuple(role for role in EOS_ROLES if role != "Observer")
 
 DOCPERM_MATRIX = {
 	"Organization": dict(read=ALL, create=COMPANY, write=COMPANY, delete=COMPANY, report=MANAGE, export=MANAGE, share=COMPANY),
@@ -43,14 +44,14 @@ DOCPERM_MATRIX = {
 	"Player": dict(read=ALL, create=MANAGE, write=MANAGE, delete=MANAGE, report=MANAGE, export=MANAGE, share=COMPANY),
 	"VTO": dict(read=ALL, create=MANAGE, write=MANAGE, delete=MANAGE, report=MANAGE, export=MANAGE, share=COMPANY),
 	"Scorecard": dict(read=ALL, create=MANAGE, write=MANAGE, delete=MANAGE, report=MANAGE, export=MANAGE, share=MANAGE),
-	"EOS Metric": dict(read=ALL, create=MANAGE, write=EDITORS, delete=MANAGE, report=MANAGE, export=MANAGE, share=MANAGE),
+	"EOS Metric": dict(read=ALL, create=MANAGE, write=EDITORS, delete=NOT_OBSERVER, report=MANAGE, export=MANAGE, share=MANAGE),
 	"Measurable Group": dict(read=ALL, create=MANAGE, write=MANAGE, delete=MANAGE, report=MANAGE, export=MANAGE, share=MANAGE),
-	"Issue": dict(read=ALL, create=EDITORS, write=EDITORS, delete=EDITORS, report=MANAGE, export=MANAGE, share=MANAGE),
+	"Issue": dict(read=ALL, create=EDITORS, write=EDITORS, delete=ALL, report=MANAGE, export=MANAGE, share=MANAGE),
 	"Level 10 Meeting": dict(read=ALL, create=EDITORS, write=EDITORS, delete=EDITORS, report=MANAGE, export=MANAGE, share=MANAGE),
 	"Scorecard Report": dict(read=ALL, create=MANAGE, write=MANAGE, delete=MANAGE, report=MANAGE, export=MANAGE, email=MANAGE, share=MANAGE),
 	"Quarterly Review": dict(read=ALL, create=MANAGE, write=MANAGE, delete=MANAGE, report=MANAGE, export=MANAGE, share=MANAGE),
-	"Rock": dict(read=ALL, create=EDITORS, write=EDITORS, delete=MANAGE, report=MANAGE, export=MANAGE, share=MANAGE),
-	"To Do": dict(read=ALL, create=EDITORS, write=EDITORS, delete=EDITORS, report=MANAGE, export=MANAGE, share=MANAGE),
+	"Rock": dict(read=ALL, create=EDITORS, write=EDITORS, delete=NOT_OBSERVER, report=MANAGE, export=MANAGE, share=MANAGE),
+	"To Do": dict(read=ALL, create=EDITORS, write=EDITORS, delete=ALL, report=MANAGE, export=MANAGE, share=MANAGE),
 }
 
 def _slug(text):
@@ -312,7 +313,7 @@ class TestPermissions(IntegrationTestCase):
 			frappe.db.get_value("Team", team.name, "team_name"), "PT Team Manager Made"
 		)
 
-	def test_team_member_enters_data_but_cannot_change_settings(self):
+	def test_team_member_enters_data_but_may_not_change_settings(self):
 		user = self._make_user("Team Member")
 		self._seat(user, self.team_a.name)
 		metric_name = self.rows["a"]["EOS Metric"].name
@@ -328,10 +329,26 @@ class TestPermissions(IntegrationTestCase):
 				120.0,
 			)
 			doc = frappe.get_doc("EOS Metric", metric_name)
-			doc.target_value = 999
+			doc.unit_type = "Currency"
 			with self.assertRaises(frappe.ValidationError) as context:
 				doc.save()
-		self.assertIn("Target Value", str(context.exception))
+		self.assertIn("Unit Type", str(context.exception))
+		self.assertEqual(frappe.db.get_value("EOS Metric", metric_name, "unit_type"), "Number")
+
+	def test_a_team_member_may_adjust_a_measurable_goal_and_group(self):
+		user = self._make_user("Team Member")
+		self._seat(user, self.team_a.name)
+		metric_name = self.rows["a"]["EOS Metric"].name
+		scorecard = frappe.db.get_value("EOS Metric", metric_name, "scorecard")
+		group = self._create("Measurable Group", {"group_name": "PT Group", "scorecard": scorecard})
+		with self.set_user(user):
+			doc = frappe.get_doc("EOS Metric", metric_name)
+			doc.target_value = 999
+			doc.description = "PT Team Member note"
+			doc.group = group.name
+			doc.save()
+		self.assertEqual(frappe.db.get_value("EOS Metric", metric_name, "target_value"), 999.0)
+		self.assertEqual(frappe.db.get_value("EOS Metric", metric_name, "group"), group.name)
 
 	def test_manager_may_change_measurable_settings(self):
 		user = self._make_user("Manager")
@@ -414,6 +431,73 @@ class TestPermissions(IntegrationTestCase):
 		metric.unit = "Percent"
 		metric.save()
 		self.assertEqual(frappe.db.get_value("EOS Metric", metric.name, "unit"), "Percent")
+
+	def _metric_owned_by(self, owner, team_name):
+		self.counter += 1
+		with self.set_user(owner):
+			return self._create(
+				"EOS Metric",
+				{
+					"metric_name": f"PT Owned {self.counter} {owner}",
+					"team": team_name,
+					"frequency": "Weekly",
+					"target_value": 100,
+				},
+			)
+
+	def _delete_as(self, user, doctype, name):
+		with self.set_user(user):
+			frappe.delete_doc(doctype, name)
+		self.assertFalse(frappe.db.exists(doctype, name))
+
+	def _refuse_delete_as(self, user, doctype, name, message):
+		with self.set_user(user):
+			with self.assertRaises(frappe.PermissionError) as context:
+				frappe.delete_doc(doctype, name)
+		self.assertIn(message, str(context.exception))
+		self.assertTrue(frappe.db.exists(doctype, name))
+
+	def test_a_team_member_may_delete_only_a_measurable_they_own(self):
+		user = self._make_user("Team Member")
+		self._seat(user, self.team_a.name)
+		mine = self._metric_owned_by(user, self.team_a.name)
+		theirs = self._metric_owned_by("Administrator", self.team_a.name)
+		self._delete_as(user, "EOS Metric", mine.name)
+		self._refuse_delete_as(
+			user, "EOS Metric", theirs.name, "may only delete a Measurable they own"
+		)
+
+	def test_a_manager_may_delete_only_a_measurable_they_own(self):
+		user = self._make_user("Manager")
+		self._seat(user, self.team_a.name)
+		mine = self._metric_owned_by(user, self.team_a.name)
+		theirs = self._metric_owned_by("Administrator", self.team_a.name)
+		self._delete_as(user, "EOS Metric", mine.name)
+		self._refuse_delete_as(
+			user, "EOS Metric", theirs.name, "may only delete a Measurable they own"
+		)
+
+	def test_an_owner_may_delete_a_measurable_they_do_not_own(self):
+		user = self._make_user("Owner")
+		self._seat(user, self.team_a.name)
+		theirs = self._metric_owned_by("Administrator", self.team_a.name)
+		self._delete_as(user, "EOS Metric", theirs.name)
+
+	def test_an_observer_may_delete_an_issue_and_a_todo_but_not_a_measurable(self):
+		user = self._make_user("Observer")
+		self._seat(user, self.team_a.name)
+		self._delete_as(user, "Issue", self.rows["a"]["Issue"].name)
+		self._delete_as(user, "To Do", self.rows["a"]["To Do"].name)
+		metric = self._metric_owned_by("Administrator", self.team_a.name)
+		with self.set_user(user):
+			with self.assertRaises(frappe.PermissionError):
+				frappe.delete_doc("EOS Metric", metric.name)
+		self.assertTrue(frappe.db.exists("EOS Metric", metric.name))
+
+	def test_a_team_member_may_delete_a_rock(self):
+		user = self._make_user("Team Member")
+		self._seat(user, self.team_a.name)
+		self._delete_as(user, "Rock", self.rows["a"]["Rock"].name)
 
 	def test_primary_role_follows_ninety_precedence(self):
 		self.assertEqual(

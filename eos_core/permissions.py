@@ -3,6 +3,7 @@ import frappe
 ROLE_PRECEDENCE = ("Owner", "Admin", "Coach", "Manager", "Team Member", "Observer")
 COMPANY_WIDE_ROLES = ("Owner", "Admin", "Coach")
 OWNER_ROLES = ("Owner", "Admin", "Manager", "Team Member")
+DELETE_OWN_CONTENT_ROLES = ("Manager", "Team Member")
 MANAGE_METRICS_ROLES = ("Owner", "Admin", "Coach", "Manager")
 
 TEAM_SCOPED_DOCTYPES = (
@@ -29,7 +30,9 @@ ORG_WIDE_TEAM_DOCTYPES = ("EOS Metric", "Issue")
 OWNER_FALLBACK = {"To Do": "owner_user", "Player": "user"}
 ROCK_COMPANY_SCOPE = "Company"
 
-DATA_ENTRY_FIELDS = ("entries",)
+TEAM_MEMBER_EDITABLE_FIELDS = frozenset(
+	{"entries", "description", "group", "max_value", "min_value", "target_value"}
+)
 
 SYSTEM_FIELDS = frozenset(
 	{
@@ -162,7 +165,7 @@ def changed_setting_fields(doc):
 	return [
 		field.fieldname
 		for field in doc.meta.fields
-		if field.fieldname not in DATA_ENTRY_FIELDS
+		if field.fieldname not in TEAM_MEMBER_EDITABLE_FIELDS
 		and field.fieldname not in SYSTEM_FIELDS
 		and field.fieldtype not in ("Table", "Table MultiSelect")
 		and not field.is_virtual
@@ -180,8 +183,8 @@ def validate_data_entry_only(doc):
 		return
 	labels = ", ".join(doc.meta.get_field(fieldname).label for fieldname in changed)
 	frappe.throw(
-		f"{primary_role() or 'Your role'} may enter data on a Measurable but may not change its "
-		f"settings. Changing {labels} is restricted to Measurable Manager roles."
+		f"{primary_role() or 'Your role'} may enter data on a Measurable but may not change {labels}. "
+		f"Changing {labels} is restricted to Measurable Manager roles."
 	)
 
 
@@ -194,3 +197,23 @@ def validate_content_owner(doc, fieldname, label):
 		f"{role} cannot be assigned as the owner of a {label}. "
 		f"Ownership is limited to {', '.join(OWNER_ROLES)}."
 	)
+
+
+def must_delete_only_own_content(user=None):
+	if is_privileged(user):
+		return False
+	return primary_role(user) in DELETE_OWN_CONTENT_ROLES
+
+
+def validate_content_deletion(doc, label, owner_field="owner"):
+	if not must_delete_only_own_content():
+		return
+	if doc.get(owner_field) == frappe.session.user:
+		return
+	role = primary_role() or "Your role"
+	frappe.throw(
+		f"{role} may only delete a {label} they own. Deleting a {label} owned by someone else "
+		f"is limited to Owner, Admin and Coach.",
+		frappe.PermissionError,
+	)
+

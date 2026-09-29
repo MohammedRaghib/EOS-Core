@@ -219,7 +219,8 @@
   {
    "role": "Team Member",
    "read": 1,
-   "write": 1
+   "write": 1,
+   "delete": 1
   },
   {
    "role": "Observer",

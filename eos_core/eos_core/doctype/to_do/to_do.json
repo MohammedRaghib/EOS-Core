@@ -141,7 +141,8 @@
   },
   {
    "role": "Observer",
-   "read": 1
+   "read": 1,
+   "delete": 1
   }
  ],
  "sort_field": "creation",

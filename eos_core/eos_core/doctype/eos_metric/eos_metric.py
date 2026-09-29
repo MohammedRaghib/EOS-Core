@@ -1,7 +1,11 @@
 import frappe
 from frappe.model.document import Document
 
-from eos_core.permissions import validate_content_owner, validate_data_entry_only
+from eos_core.permissions import (
+	validate_content_deletion,
+	validate_content_owner,
+	validate_data_entry_only,
+)
 from eos_core.scorecard_engine import (
 	MAX_FORMULA_VARIABLES,
 	compute_status,
@@ -36,6 +40,9 @@ class EOSMetric(Document):
 
 	def validate_owner_content_role(self):
 		validate_content_owner(self, "owner", "Measurable")
+
+	def on_trash(self):
+		validate_content_deletion(self, "Measurable")
 
 	def validate_owner_team(self):
 		if not self.team or not self.owner:
