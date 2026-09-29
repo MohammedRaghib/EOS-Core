@@ -168,9 +168,10 @@ Fixed in the Block 1 correctness pass:
 
 Still open: **none in this table.** Every bug found by this audit is now fixed.
 
-Found *after* the audit and tracked in `TODO.md`: `BUG-5` and `DATA-2`. `DATA-2` is closed in code
-(`Scorecard.team`/`timeframe` are now immutable, so a `format:` autoname can no longer go stale and
-block metric creation) but not yet committed.
+Found *after* the audit and tracked in `TODO.md`: `BUG-5` and `DATA-2`, both now fixed. `DATA-2`'s
+recorded mechanism was wrong — the failure is a `format:` autoname **colliding with an existing name**,
+not `ensure_scorecard` failing to match — and `Scorecard.team`/`timeframe` are now immutable so it
+cannot recur.
 
 **Smaller items**
 

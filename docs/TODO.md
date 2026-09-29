@@ -9,8 +9,8 @@ Last full audit: **2026-09-28** — every item below was re-verified against the
 
 **Since that audit**, Block A was closed in full (`BUG-1`..`BUG-5`, `DATA-1`, `DATA-2`) and `PERM-1`
 landed, taking the suite to **150 (87 integration + 63 unit)**, all green. `DATA-2` was found while
-closing `DATA-1` and is new; it is fixed and verified but not yet committed. The 129 figure above is
-kept as the audit record; the live count is 150.
+closing `DATA-1` and is new; its recorded mechanism was wrong and is corrected in *Done*. The 129
+figure above is kept as the audit record; the live count is 150.
 
 ## Rules for agents working this queue
 
@@ -69,54 +69,6 @@ role grants to the 13 DocTypes before deciding `PERM-6`.
 ---
 
 ## Block A — Correctness (0 open, 7 done)
-
-### DATA-2 — S2 · Editing a `Scorecard.timeframe` orphans its name and blocks metric creation
-**Status** `TODO` → work complete and verified, **not yet committed** (SHA pending) · code+tests ☑ ·
-reachable ☑ · **Verified 2026-09-28** (re-verified and fixed 2026-09-28) · *found 2026-09-28 while closing `DATA-1`, not in any prior list*
-**Where** `eos_core/eos_core/doctype/scorecard/scorecard.py` (`validate_immutable_identity`,
-`validate_unique`); the invariant is recorded in `docs/architecture.md` §3c
-**History** this was live in the demo data: the only Scorecard in the database was named
-`BPO-Weekly` with `timeframe = Annual`, so *no* team-scoped `BPO` metric could be created at all.
-Corrected to `Weekly` to match the name when `DATA-1` was closed. That repaired the one row that
-existed; the mechanism that produced it was still live and is what this item fixes.
-**Bug — the mechanism originally recorded here was wrong, and is corrected below.** The item claimed
-`ensure_scorecard` stops matching because it looks the scorecard up by `{team, timeframe}`. It does
-**not** stop matching: that lookup is on *fields*, which update correctly. Confirmed live — after
-editing `BPO-Weekly.timeframe` to `Annual`, `get_value("Scorecard", {"team": "BPO", "timeframe":
-"Annual"})` still returned `BPO-Weekly`. The real failure is a **name collision**:
-`Scorecard` is autonamed `format:{team}-{timeframe}` and Frappe does **not** re-run autoname on
-update (`set_new_name` is only called from `insert()`, `document.py:479`, and `_sync_autoname_field`
-only syncs `field:` autonames), so the row keeps its old name. Creating a metric of a *different*
-frequency then finds no `{team, timeframe}` match, inserts a new `Scorecard`, autoname computes the
-**already-taken** name, and the old `validate_unique` threw a message asserting something false.
-Reproduced before the fix:
-
-```
-edit BPO-Weekly.timeframe -> Annual ; save
-create a Weekly BPO metric
-ValidationError: A Scorecard already exists for team BPO and Weekly timeframe.
-```
-
-No Weekly scorecard existed. The user is blocked from creating a valid metric, and the error names a
-Scorecard that is not there.
-**Done when** either `timeframe` is made immutable after insert, or editing it renames the doc, and
-`ensure_scorecard` cannot be defeated by the resulting mismatch. Test per branch.
-**Resolution** branch **(a) immutable** was chosen over renaming, on Ninety's evidence:
-`architecture.md` §2 already records that a metric's timeframe cannot be converted later, and
-`Scorecard` is one per team × timeframe. `Scorecard.validate_immutable_identity` now refuses any
-change to `team` or `timeframe` on an existing doc, which closes the root cause — a `format:` name
-can no longer go stale. The rename branch was rejected because it would have to rewrite links on both
-`EOS Metric.scorecard` and `Measurable Group.scorecard`, and `DEBT-7`'s missing unique index on
-team+timeframe would leave a rename racy.
-`ensure_scorecard` is not defeated by the mismatch, because the mismatch can no longer be created.
-The residual legacy case — a row whose name predates this fix — stays blocked, but now says what is
-actually true: `Scorecard BPO-Weekly already exists with timeframe Annual. Open that Scorecard instead
-of creating a new one.` (was: a false claim that a Weekly scorecard existed). Both messages are
-covered by tests.
-6 tests added to `test_scorecard.py` (13 → 19): one per immutability field, one proving the other
-fields stay editable, one proving `ensure_scorecard` resolves all four timeframes after a refused
-change, and two for the legacy-row message. Suite: 150/150 (87 integration + 63 unit). No
-`bench migrate` was needed — this is controller-only, no `*.json` changed.
 
 ---
 
@@ -407,8 +359,54 @@ Moved here when finished. Never deleted, never renumbered.
 | `BUG-5` | Dangling `EOS Metric.group` raised `DoesNotExistError` | 2026-09-28 | `a5f5321` |
 | `DATA-1` | `Player.user` uniqueness / team-ownership rule undecided | 2026-09-28 | `aedbbc1` |
 | `PERM-1` | The six Ninety Frappe roles did not exist | 2026-09-28 | `fbb8b5d` |
+| `DATA-2` | Editing a `Scorecard.timeframe` orphaned its name and blocked metric creation | 2026-09-28 | `2983668` |
 | `DOC-1` | `architecture.md` wrongly said `Measurable Group` has no `title_field` | 2026-09-28 | `f6f3e73` |
 | `DOC-2` | `architecture.md` §4 engine table omitted `validate_formula_syntax` | 2026-09-28 | `f6f3e73` |
+
+**`DATA-2`** — **the mechanism recorded in the item was wrong; corrected here and in the commit.**
+The item claimed `ensure_scorecard` stops matching, because it looks the scorecard up by
+`{team, timeframe}`. It does **not**: that lookup is on *fields*, which update correctly. Confirmed
+live before touching anything — after editing `BPO-Weekly.timeframe` to `Annual`,
+`get_value("Scorecard", {"team": "BPO", "timeframe": "Annual"})` still returned `BPO-Weekly`.
+The real failure is a **name collision**. `Scorecard` is autonamed `format:{team}-{timeframe}` and
+Frappe never re-runs autoname on update — `set_new_name` is called only from `insert()`
+(`frappe/model/document.py:479`), and `_sync_autoname_field` (`base_document.py:1247`) syncs only
+`field:` autonames — so the row keeps its old name. A metric of a *different* frequency then finds no
+`{team, timeframe}` match, inserts a new `Scorecard`, autoname computes the **already-taken** name,
+and the old `validate_unique` threw a message asserting something false. Reproduced pre-fix:
+
+```
+edit BPO-Weekly.timeframe -> Annual ; save
+create a Weekly BPO metric
+ValidationError: A Scorecard already exists for team BPO and Weekly timeframe.
+```
+
+No Weekly scorecard existed. The user was blocked from creating a valid metric, and the error named a
+Scorecard that was not there.
+
+**Branch (a) immutable** was chosen over the rename branch, on Ninety's evidence:
+`architecture.md` §2 already records that a metric's timeframe cannot be converted later, and Ninety
+keeps one Scorecard per team × timeframe. `Scorecard.validate_immutable_identity` now refuses any
+change to `team` or `timeframe` on an existing doc, so the name can no longer go stale. Renaming was
+rejected: it would have to rewrite links on both `EOS Metric.scorecard` and
+`Measurable Group.scorecard`, and `DEBT-7`'s missing unique index on team+timeframe would leave a
+rename racy. `validate_unique` is consequently insert-only — its update branch became unreachable and
+was deleted rather than left as a misleading guard.
+`ensure_scorecard` cannot be defeated by the mismatch because the mismatch can no longer be created.
+The residual legacy case — a row whose name predates this fix — is **deliberately still blocked**,
+since such a row cannot be repaired by editing it, but it now says what is actually true: `Scorecard
+BPO-Weekly already exists with timeframe Annual. Open that Scorecard instead of creating a new one.`
+(was: a false claim that a Weekly scorecard existed). A silent workaround was rejected because it
+would create a second scorecard with a misleading name.
+
+6 tests added to `test_scorecard.py` (13 → 19), written **before** the code change and confirmed
+failing against it: one per immutability field, one proving `description`/`archived` stay editable
+(the guard is not over-broad), one proving `ensure_scorecard` resolves all four timeframes after a
+refused change, and two for the legacy-row message from both the insert and the metric-creation path.
+No `bench migrate` was needed — controller-only, no `*.json` changed. Suite: 150/150 (87
+integration + 63 unit). History: this was live in the demo data when `DATA-1` was closed (the only
+`Scorecard` was `BPO-Weekly` with `timeframe = Annual`); that repaired the one existing row, but the
+mechanism that produced it stayed live until now.
 
 **`PERM-1`** — the six roles are created by `eos_core.roles.ensure_roles`, wired to `after_migrate` in
 `hooks.py`, rather than as one-off console data. The item's note said no `bench migrate` was needed
