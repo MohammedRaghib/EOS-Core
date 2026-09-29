@@ -324,8 +324,12 @@ erDiagram
 - **Formula Builder** (`is_smart`): metric's `actual_value` is computed from other metrics'
   entries via `{Metric Name}` syntax. Max 25 variables, same-timeframe only, no self-reference,
   no archived variables. Retroactive recalc on save skips entries with `is_manual` checked.
-- **Validate order**: `validate_owner_team` → `validate_range_target` → `ensure_scorecard` →
-  `validate_group` → `validate_formula` → `apply_formula` → entry status loop.
+- **Validate order**: `validate_data_entry_only` → `validate_owner_team` →
+  `validate_owner_content_role` → `validate_range_target` → `ensure_scorecard` → `validate_group` →
+  `validate_formula` → `apply_formula` → entry status loop. The two permission guards run first
+  (guards 1 and 2 in §3h): `validate_data_entry_only` has to precede `validate_range_target`, which
+  rewrites a `0` `min_value`/`max_value` to `None` and would otherwise read as a settings change on
+  every data entry.
 
 ## 3d. Meetings & Issues (Phase 4 — implemented)
 
@@ -631,7 +635,7 @@ Design notes:
 
 ```
 eos_core/
-├── scorecard_engine.py          # pure logic (status, achievement, health, aggregation, formulas)
+├── scorecard_engine.py          # pure logic (status, achievement, indicators, aggregation, formulas)
 └── eos_core/                    # "Eos Core" module (per modules.txt)
     └── doctype/
         ├── eos_metric/          # controller: validation + formula recalc
@@ -734,6 +738,7 @@ Phase status is in `docs/roadmap.md`; the live work queue with stable IDs is in
   the one grant to take back.
 - **`To Do`, `Issue` and `Rock` cannot be archived at all.** Ninety gives every role but Observer an
   `Archive a To-Do` row and ships an archive view for all three tools, but archiving is a write to an
-  `archived` flag and only `EOS Metric` and `Measurable Group` carry one. Queued as `DATA-3`.
+  `archived` flag and none of the three carries one. Five other DocTypes do: `EOS Metric`,
+  `Measurable Group`, `Player`, `Team` and `Scorecard`. Queued as `DATA-3`.
 - Known bugs and the full unwired list are queued in [`TODO.md`](TODO.md); the audit that produced
   them is `docs/roadmap.md` § "Known gaps in Phases 1–5".

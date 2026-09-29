@@ -25,6 +25,21 @@ that no prior list contained — `PERM-7`, `PERM-8`, `PERM-10` and `PERM-11` are
 
 Suite: **243 (180 integration + 63 unit)**, all green. `bench migrate` run.
 
+**Doc/code re-verification, 2026-09-29.** Every status in this file was re-checked against the code,
+the live `resolv.localhost` database and a 243-test run. **No status was wrong**: each `DONE` item's
+code is present, and no item marked `TODO` is secretly built. The drift was in the *evidence*, and it
+fell into two groups. **False claims:** this file said only two DocTypes carry an `archived` flag
+(five do — `DATA-3`, `PERM-2` and *Done* all repeated it, as did `architecture.md` §7);
+`roadmap.md` called `Rock.rock_name`, `Quarterly Review` team×period_start and `Level 10 Meeting`
+team+date "(unique)" when none has a DB index (`DEBT-7` says the opposite); `AGENTS.md`'s test table
+did not sum to its own total; and `roadmap.md`'s capability matrix gave `Coach` a flat "no" on
+Groups, contradicting the `PERM-11` decision it records four lines below. **Stale detail:** eight
+counts and line references (`DEBT-1`, `DEBT-2`, `DEBT-3`, `DEBT-9`, `DEBT-11`, `roadmap.md` test
+counts and constant count) and two `architecture.md` omissions (the real `EOSMetric.validate` order,
+which skips both permission guards, and the deleted `compute_health` still named in §5). All are
+corrected in place; `DEBT-6` gained a scope note rather than a widened "Done when". Block counts are
+unchanged: 31 open, 24 done.
+
 ## Rules for agents working this queue
 
 These exist because the previous setup had three competing lists in three formats, and they drifted.
@@ -99,9 +114,12 @@ are already in place and tested.
 **Where** `eos_core/eos_core/doctype/{rock,issue,to_do}/*.json`
 **Problem** Ninety's roles table gives every role but Observer an `Archive a To-Do` row, and its
 To-Do, Issue and Rocks tools each have an `Archive …` and a `View archive` surface. Archiving is a
-write to an `archived` flag, and in this app only `EOS Metric` and `Measurable Group` carry one —
-verified against the JSON, none of the three has the field, so there is nothing for an archive button
-to set and no archived To-Do can exist at all.
+write to an `archived` flag, and none of the three tools carries one — verified against the JSON and
+against `show columns` in the live DB, so there is nothing for an archive button to set and no
+archived To-Do can exist at all. Five DocTypes *do* carry the flag: `EOS Metric`, `Measurable Group`,
+`Player`, `Team` and `Scorecard`. (Corrected 2026-09-29: this item previously claimed only `EOS
+Metric` and `Measurable Group` carried one, which was wrong — `Player`, `Team` and `Scorecard` do
+too. The item's conclusion is unaffected.)
 **Why this is not a permission item** archiving follows `write`, and those grants are already right
 (Observer refused, everyone else with `write` allowed). The gap is a missing field, not a missing
 grant. It is queued here rather than fixed under `PERM-12` because it is a schema change with the
@@ -149,12 +167,12 @@ The mapping actually applied, per DocType (full table in `docs/architecture.md` 
 | `Scorecard Report`, `Quarterly Review` | + Manager | snapshot surfaces are a settings-level action |
 | child tables | none | children inherit the parent |
 
-`archive`/`unarchive` is not a DocPerm column — it is a write to the `archived` field, which only
-`EOS Metric` and `Measurable Group` carry. So archiving follows `write`: `Observer` is refused by
-DocPerm, `Team Member` is refused twice on a Measurable (DocPerm on the group, and
-`validate_data_entry_only` on the metric), and the four Measurable-Manager roles may do it. No
-bulk-archive surface exists yet, which is `PERM-4` and `UI-6`. `Rock`, `Issue` and `To Do` have no
-`archived` field at all, which is `DATA-3`.
+`archive`/`unarchive` is not a DocPerm column — it is a write to the `archived` field, which five
+DocTypes carry (`EOS Metric`, `Measurable Group`, `Player`, `Team`, `Scorecard`). So archiving follows
+`write`: `Observer` is refused by DocPerm, `Team Member` is refused twice on a Measurable (DocPerm on
+the group, and `validate_data_entry_only` on the metric), and the four Measurable-Manager roles may
+do it. No bulk-archive surface exists yet, which is `PERM-4` and `UI-6`. `Rock`, `Issue` and `To Do`
+have no `archived` field at all, which is `DATA-3`.
 
 ### PERM-3 — S2 · Team Members may reorder measurables they do not own
 **Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-29**
@@ -527,7 +545,7 @@ that the `TD-` prefix is the intended display form.
 ### DEBT-1 — S3 · Three dead constants, and a range tuple duplicated across modules
 **Status** `TODO` · **Verified 2026-09-28**
 **Where** `eos_core/scorecard_engine.py:11-13` and
-`eos_core/eos_core/doctype/eos_metric/eos_metric.py:12`
+`eos_core/eos_core/doctype/eos_metric/eos_metric.py:17`
 **Problem** `RANGE_OPERATORS` (a public alias of the private `_RANGE_OPERATORS`, which *is* used),
 `ALL_OPERATORS` and `MATCHLESS_OPERATORS` have zero references anywhere. Worse, `RANGE_OPERATORS` is
 re-declared independently in `eos_metric.py`, so the range tuple exists in two modules and can drift.
@@ -535,15 +553,15 @@ re-declared independently in `eos_metric.py`, so the range tuple exists in two m
 
 ### DEBT-2 — S3 · `populate_snapshot` computes `trends` twice
 **Status** `TODO` · **Verified 2026-09-28**
-**Where** `eos_core/eos_core/doctype/scorecard_report/scorecard_report.py:42` and `:172`
+**Where** `eos_core/eos_core/doctype/scorecard_report/scorecard_report.py:42` and `:173`
 **Problem** `build_scorecard_report` returns a `trends` list that is discarded; `_email_context`
 recomputes the same value from the child rows. Dead work on every report build.
 **Done when** one of the two computations is removed.
 
 ### DEBT-3 — S3 · Milestone-progress logic implemented twice
 **Status** `TODO` · **Verified 2026-09-28**
-**Where** `eos_core/eos_core/doctype/rock/rock.py:28` (`Rock.progress` property) and
-`eos_core/eos_core/doctype/quarterly_review/quarterly_review.py:69-78`
+**Where** `eos_core/eos_core/doctype/rock/rock.py:30` (`Rock.progress` property) and
+`eos_core/eos_core/doctype/quarterly_review/quarterly_review.py:74-79`
 **Done when** both read one implementation. Watch the return-type difference: the property returns
 int `0` with no milestones, the review path returns float `0.0`.
 
@@ -570,6 +588,12 @@ which normalises a Nov/Dec anchor to a Q4 start first. So no test covers it.
 resolved by `DATA-1` on 2026-09-28 — it now validates one seat per person per team and has
 `test_player.py`, 4 tests)
 **Problem** the remaining two are `pass` with no test files.
+**Scope note (2026-09-29 audit)** "the remaining two" counts only the Standard DocType and the one
+Child. Twelve controllers in the app are a bare `pass` with no test file: these two plus
+`meeting_agenda_item`, `meeting_to_do`, `rock_milestone`, `scorecard_report_metric`, `to_do_item`
+and the five `vto_*` sections. The ten Child tables are the same category as `Scorecard Entry`, so
+whether the item covers them is a scope decision, not a new defect — left undecided rather than
+silently folded in, per the "add a new item with a new ID" rule.
 **Done when** each either has a test file proving it is intentionally passive, or has the validation
 it should have. Empty controllers are fine; untested *and* undocumented is not.
 
@@ -599,7 +623,7 @@ intended, never written down); and a rock with no milestones contributes `progre
 **Status** `TODO` · **Verified 2026-09-28**
 **Problem** `eos_core/eos_core/doctype/vto/vto.py` is the only Python file indented with 4 spaces,
 violating `.editorconfig` and `pyproject.toml` (`indent-style = "tab"`); `ruff format` would rewrite
-it wholesale. **20** `.py` files are missing a final newline.
+it wholesale. **19** `.py` files are missing a final newline.
 **Done when** `ruff format` runs clean and `git diff` is reviewed line by line — the vto.py
 reindent will show as a whole-file change.
 
@@ -613,7 +637,7 @@ a previous session churning. None was ever committed.
 
 ### DEBT-11 — S3 — `Rock.progress` returns `int` where callers expect `float`
 **Status** `TODO` · **Verified 2026-09-28** · *found 2026-09-28*
-**Where** `eos_core/eos_core/doctype/rock/rock.py:32`
+**Where** `eos_core/eos_core/doctype/rock/rock.py:33`
 **Problem** `return 0` when there are no milestones, `round(...)` (a float) otherwise. `get_rock_summary`
 serialises it straight to JSON, so the type flips depending on data.
 **Done when** it returns `0.0`, with a test for the empty-milestone case.
@@ -683,7 +707,8 @@ would have been a second competing source of truth for the same fact.
 
 **`PERM-2` — the matrix, and what it does not cover.** Full per-DocType table in
 `architecture.md` §3h. `archive`/`unarchive` is not a DocPerm column at all — it is a write to the
-`archived` field that both `EOS Metric` and `Measurable Group` carry — so it follows `write`, and
+`archived` field that five DocTypes carry (`EOS Metric`, `Measurable Group`, `Player`, `Team`,
+`Scorecard`) — so it follows `write`, and
 `Observer` and `Team Member` are refused for them by the two other guards. `share` is `0` for
 `Team Member` and `Observer` everywhere (and for `Manager` on `Organization`, `Player`, `Team` and
 `VTO`), so neither can widen a document's visibility past the team scoping `PERM-6` puts around

@@ -102,7 +102,7 @@ apps/eos_core/
 │   └── roadmap.md               # phase history + the audit behind the queue
 └── eos_core/
     ├── scorecard_engine.py      # PURE functions: status/indicator/aggregation/formulas/rollup
-    ├── permissions.py           # team scoping, role precedence, the three DocPerm guards
+    ├── permissions.py           # team scoping, role precedence, the four DocPerm guards
     ├── roles.py                 # ensure_roles, wired to after_migrate
     ├── hooks.py                 # permission_query_conditions + has_permission wiring
     ├── test_permissions.py      # 92 tests: 26 hand-written + 66 generated role×DocType
@@ -158,6 +158,8 @@ enabled on `resolv.localhost`). The split by file:
 
 | Integration test | Count |
 |---|---|
+| `eos_core/test_permissions.py` (26 hand-written + 66 generated) | 92 |
+| `eos_core/test_roles.py` (roles provisioning — touches the DB) | 4 |
 | `doctype/eos_metric/test_eos_metric.py` | 12 |
 | `doctype/issue/test_issue.py` | 5 |
 | `doctype/level_10_meeting/test_level_10_meeting.py` | 7 |
@@ -169,15 +171,19 @@ enabled on `resolv.localhost`). The split by file:
 | `doctype/team/test_team.py` | 4 |
 | `doctype/to_do/test_to_do.py` | 5 |
 | `doctype/vto/test_vto.py` | 4 |
-| `eos_core/test_permissions.py` (26 hand-written + 66 generated) | 92 |
 | **Integration total** | **180** |
-| `eos_core/test_roles.py` (roles provisioning) | 4 |
 | `eos_core/test_scorecard_engine.py` (unit, frappe-free) | **63** |
+| **Total** | **243** |
+
+The 180 covers every suite that needs a database, `test_roles.py` included — Frappe's runner counts
+it as integration, so it belongs in that block. (Corrected 2026-09-29: the table previously listed
+`test_roles.py` *below* the 180 total, so its rows summed to 176 and did not reconcile.)
 
 Re-derive these with `grep -rc 'def test_'` rather than trusting the table — the documented totals
 have drifted more than once. `test_permissions.py` is the one file where that method undercounts by
 a lot: 26 in the source, 92 in the run, because it generates
-`test_visibility_<doctype>_<role>` for 11 DocTypes × 6 roles. The **total** is the number to trust.
+`test_visibility_<doctype>_<role>` for 11 DocTypes × 6 roles. `test_roles.py` is the other: 4 either
+way. The **total** is the number to trust.
 
 **Permissions are implemented.** The six Ninety roles are created by
 `after_migrate` → `eos_core.roles.ensure_roles`; all 13 standard DocTypes carry a DocPerm block for

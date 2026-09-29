@@ -75,7 +75,8 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
 
 ## Phase 4 — Meetings & Reporting `[x] DONE`
 
-- [x] `Level 10 Meeting` (Standard): `team` + `meeting_date` (unique), `status`
+- [x] `Level 10 Meeting` (Standard): `team` + `meeting_date` (unique at the app level, no DB
+      index — `DEBT-7`), `status`
       (Planned → In Progress → Complete), format autoname `{team}-{meeting_date}`, default 6-item
       agenda auto-populated (`Segue`/`Scorecard Review`/`Good News`/`To-Dos`/`IDS`/`123s of the Week`).
       The "Scorecard Review" item is pre-filled with the team's measurables **in
@@ -91,7 +92,7 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
       of all non-archived metrics + off-track summary + trend detection, ordered by
       `Measurable Group.order`. `send_report` emails the team leader (or a chosen recipient) via a
       Jinja template.
-- [x] Tests: `test_level_10_meeting.py` (7), `test_scorecard_report.py` (13) — all green
+- [x] Tests: `test_level_10_meeting.py` (7), `test_scorecard_report.py` (14) — all green
 
 ## Phase 5 — EOS Operating System `[x] DONE`
 
@@ -100,8 +101,9 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
       `VTO Core Focus` (purpose/niche/10-year target), `VTO Marketing Strategy`
       (threes/uniques/process/guarantee), `VTO 3 Year Picture`, `VTO 1 Year Plan`,
       `VTO Quarterly Rocks`
-- [x] `Rock` (90-day goal): `rock_name` (unique), `status` (`Not Started`/`In Progress`/`Complete`/
-      `Dropped`, forward completion gated on milestones), `scope` (Company/Team/Individual),
+- [x] `Rock` (90-day goal): `rock_name` (unique at the app level, no DB index — `DEBT-7`),
+      `status` (`Not Started`/`In Progress`/`Complete`/`Dropped`, forward completion gated on
+      milestones), `scope` (Company/Team/Individual),
       `owner_user`, `duration_start`/`duration_end` (there is no single `duration` field),
       head-down hours, `Rock Milestone` child rows, `mark_complete` closes
       linked To-Dos
@@ -110,8 +112,9 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
       child rows, `cascade_todo_transitions` for leadership rollups. `todo_name` carries
       `unique: 1`, so it is enforced by a real DB unique index (verified: key `todo_name`,
       `Non_unique=0`); a duplicate raises `frappe.DuplicateEntryError`
-- [x] `Quarterly Review`: `team` × `period_start` (unique), auto-snapshot on insert — pulls the
-      team's Rocks (Company-scoped + own-team) with milestone progress, To-Dos due within the
+- [x] `Quarterly Review`: `team` × `period_start` (unique at the app level, no DB index —
+      `DEBT-7`), auto-snapshot on insert — pulls the team's Rocks (Company-scoped + own-team) with
+      milestone progress, To-Dos due within the
       period (overdue judged against `period_end`), and team Measurables as **On Track / Off Track
       counts** (not green/red) via `build_quarterly_review`
 - [x] Tests: `test_rock.py` (5), `test_to_do.py` (5),
@@ -142,7 +145,7 @@ current code and are genuinely incomplete.
 | Item | State |
 |---|---|
 | `week_overlap_ratio`, `quarter_bounds` | Public, unit-tested, still no production call site. `week_overlap_days` is the form actually used by `aggregate_entries_for_period`; `quarter_bounds` remains unused. |
-| 4 unused constants in `scorecard_engine.py` | `RANGE_OPERATORS` (public alias of the private `_RANGE_OPERATORS`, which *is* used), `ALL_OPERATORS`, `MATCHLESS_OPERATORS` — dead. `RANGE_OPERATORS` is **also re-declared independently** in `eos_metric.py`, so the range tuple is duplicated across two modules and the two can drift. |
+| 3 unused constants in `scorecard_engine.py` | `RANGE_OPERATORS` (public alias of the private `_RANGE_OPERATORS`, which *is* used), `ALL_OPERATORS`, `MATCHLESS_OPERATORS` — dead. `RANGE_OPERATORS` is **also re-declared independently** in `eos_metric.py:17`, so the range tuple is duplicated across two modules and the two can drift. |
 
 **No user interface at all**
 
@@ -199,7 +202,7 @@ cannot recur.
 - **Formatting debt** (recorded, not fixed — deliberately left out of the parity work):
   `vto/vto.py` is the only Python file using 4-space indentation, which violates
   `.editorconfig` / `pyproject.toml` (`indent-style = "tab"`) and would be rewritten wholesale by
-  `ruff-format`; and **20** `.py` files are missing a final newline.
+  `ruff-format`; and **19** `.py` files are missing a final newline.
 - **The database holds test residue only** (~1 Organization, 1 Team, 1 Player, 1 Scorecard).
   Nothing has been exercised end-to-end by a user — the 150 green tests are not evidence that any
   workflow works in the browser.
@@ -250,7 +253,7 @@ Ninety's capability matrix:
 |---|---|---|---|---|---|
 | **Owner** | Company-wide | yes | yes | yes | Measurable Manager |
 | **Admin** | Company-wide | yes | yes | yes | Measurable Manager |
-| **Coach** (Implementer) | Company-wide | no† | yes | yes | Measurable Manager |
+| **Coach** (Implementer) | Company-wide | omitted † — granted as Admin | yes | yes | Measurable Manager |
 | **Manager** | no | yes | yes | yes | no Measurable Manager |
 | **Team Member** | no | reorder within a group only | no | yes | no Measurable Manager |
 | **Observer** | no | no | no | no (view only) | no Measurable Manager |
@@ -286,8 +289,11 @@ Ninety's capability matrix:
 > and `PERM-4` are blocked on `UI-1` rather than on permissions.
 >
 > † Ninety's Groups article lists Owner, Admin, Manager, Team Member and Observer and omits Coach
-> entirely. Resolved as Admin, since Ninety describes a Coach as having Admin capabilities "with one
-> exception: they cannot be assigned items" and a group is not an item. Recorded, not assumed.
+> entirely — so this cell records what Ninety *publishes*, not what we built. Resolved as Admin and
+> implemented, since Ninety describes a Coach as having Admin capabilities "with one exception:
+> they cannot be assigned items" and a group is not an item. Recorded, not assumed. (Corrected
+> 2026-09-29: the cell previously read a flat "no", which contradicted the `PERM-11` decision and the
+> `Measurable Group` grant below it.)
 
 ## Phase 7 — Integrations, Bulk UX & Ninety parity `[ ]`
 
