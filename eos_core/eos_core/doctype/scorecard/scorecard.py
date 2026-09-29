@@ -13,26 +13,33 @@ from eos_core.scorecard_engine import (
 
 class Scorecard(Document):
 	def validate(self):
+		self.validate_immutable_identity()
 		self.validate_unique()
 
-	def validate_unique(self):
+	def validate_immutable_identity(self):
 		if self.is_new():
-			if frappe.db.exists("Scorecard", self.name):
-				frappe.throw(
-					f"A Scorecard already exists for team {frappe.bold(self.team)} and {self.timeframe} timeframe."
-				)
 			return
-		if not (self.has_value_changed("team") or self.has_value_changed("timeframe")):
+		for fieldname in ("team", "timeframe"):
+			if not self.has_value_changed(fieldname):
+				continue
+			label = self.meta.get_field(fieldname).label
+			frappe.throw(
+				f"{frappe.bold(label)} is part of a Scorecard's name and cannot be changed after it "
+				"is created. Open this Scorecard, or create a Scorecard for the other value."
+			)
+
+	def validate_unique(self):
+		if not self.is_new():
 			return
 		existing = frappe.db.get_value(
-			"Scorecard",
-			{"team": self.team, "timeframe": self.timeframe, "name": ["!=", self.name]},
-			"name",
+			"Scorecard", self.name, ["team", "timeframe"], as_dict=True
 		)
-		if existing:
-			frappe.throw(
-				f"A Scorecard already exists for team {frappe.bold(self.team)} and {self.timeframe} timeframe."
-			)
+		if not existing:
+			return
+		frappe.throw(
+			f"Scorecard {frappe.bold(self.name)} already exists with timeframe "
+			f"{frappe.bold(existing.timeframe)}. Open that Scorecard instead of creating a new one."
+		)
 
 	@frappe.whitelist()
 	def get_rollup_view(self, view_by=None, range_start=None, range_end=None):

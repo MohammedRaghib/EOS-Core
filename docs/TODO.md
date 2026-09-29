@@ -7,9 +7,10 @@ not queued.
 Last full audit: **2026-09-28** — every item below was re-verified against the code, the live
 `resolv.localhost` database, and a 129-test run. 129/129 green at that date.
 
-**Since that audit**, Block A was closed in full (`BUG-1`..`BUG-5`, `DATA-1`) and `PERM-1` landed,
-taking the suite to **144 (81 integration + 63 unit)**, all green. `DATA-2` was found while closing
-`DATA-1` and is new. The 129 figure above is kept as the audit record; the live count is 144.
+**Since that audit**, Block A was closed in full (`BUG-1`..`BUG-5`, `DATA-1`, `DATA-2`) and `PERM-1`
+landed, taking the suite to **150 (87 integration + 63 unit)**, all green. `DATA-2` was found while
+closing `DATA-1` and is new; it is fixed and verified but not yet committed. The 129 figure above is
+kept as the audit record; the live count is 150.
 
 ## Rules for agents working this queue
 
@@ -43,7 +44,7 @@ Follow them exactly.
 ```bash
 cd /workspace/development/frappe-bench
 bench --site resolv.localhost migrate                      # after ANY *.json edit, incl. permissions
-bench --site resolv.localhost run-tests --app eos_core     # full suite, 144 tests
+bench --site resolv.localhost run-tests --app eos_core     # full suite, 150 tests
 bench --site resolv.localhost run-tests --module eos_core.eos_core.doctype.issue.test_issue   # one module
 ./env/bin/python -c "import sys; sys.path.insert(0,'apps/eos_core'); from eos_core.scorecard_engine import compute_status"  # engine only, no DB
 ```
@@ -55,38 +56,76 @@ bench --site resolv.localhost run-tests --module eos_core.eos_core.doctype.issue
 
 # Queue
 
-## Next up: `PERM-2` (Block B) — Block A is closed, roles provisioned
+## Next up: `PERM-2` (Block B) — but read `PERM-6` first
 
-Block A is **closed**: all five bugs and `DATA-1` are done, and `DATA-2` was found while closing it.
-Blocks B (permissions) and C (UI) are where the actual product is; nothing built so far is usable by
-anyone but a developer with a console.
+Block A is **closed**: all five bugs plus `DATA-1` and `DATA-2` are done. Blocks B (permissions) and
+C (UI) are where the actual product is; nothing built so far is usable by anyone but a developer with
+a console.
+
+`PERM-2` is still the top item, but its "Done when" is narrower than the matrix it cites, and doing
+only the DocPerm part would ship a parity regression. `PERM-6` records that gap. Do not add flat
+role grants to the 13 DocTypes before deciding `PERM-6`.
 
 ---
 
-## Block A — Correctness (0 open, 6 done)
+## Block A — Correctness (0 open, 7 done)
 
-### DATA-2 — S2 · Editing a `Scorecard.timeframe` orphans its name and breaks `ensure_scorecard`
-**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · *found 2026-09-28 while closing `DATA-1`, not in any prior list*
-**Where** `eos_core/eos_core/doctype/scorecard/scorecard.json` (autoname `format:{team}-{timeframe}`);
-consumer at `eos_core/eos_core/doctype/eos_metric/eos_metric.py:64`
-**Bug** `Scorecard` is autonamed `{team}-{timeframe}`, but Frappe does not re-run autoname on update,
-so editing `timeframe` leaves the old timeframe baked into `name`. `ensure_scorecard` looks the
-scorecard up by `{"team": ..., "timeframe": ...}`, so it no longer matches, concludes none exists,
-and tries to insert a duplicate — which then trips the app-level `validate_unique` check. The user
-sees "A Scorecard already exists for team X and Y timeframe" while creating a perfectly valid metric.
-**This was live in the demo data**: the only Scorecard in the database was named `BPO-Weekly` with
-`timeframe = Annual`, so *no* team-scoped `BPO` metric could be created at all. Corrected to
-`Weekly` to match the name.
+### DATA-2 — S2 · Editing a `Scorecard.timeframe` orphans its name and blocks metric creation
+**Status** `TODO` → work complete and verified, **not yet committed** (SHA pending) · code+tests ☑ ·
+reachable ☑ · **Verified 2026-09-28** (re-verified and fixed 2026-09-28) · *found 2026-09-28 while closing `DATA-1`, not in any prior list*
+**Where** `eos_core/eos_core/doctype/scorecard/scorecard.py` (`validate_immutable_identity`,
+`validate_unique`); the invariant is recorded in `docs/architecture.md` §3c
+**History** this was live in the demo data: the only Scorecard in the database was named
+`BPO-Weekly` with `timeframe = Annual`, so *no* team-scoped `BPO` metric could be created at all.
+Corrected to `Weekly` to match the name when `DATA-1` was closed. That repaired the one row that
+existed; the mechanism that produced it was still live and is what this item fixes.
+**Bug — the mechanism originally recorded here was wrong, and is corrected below.** The item claimed
+`ensure_scorecard` stops matching because it looks the scorecard up by `{team, timeframe}`. It does
+**not** stop matching: that lookup is on *fields*, which update correctly. Confirmed live — after
+editing `BPO-Weekly.timeframe` to `Annual`, `get_value("Scorecard", {"team": "BPO", "timeframe":
+"Annual"})` still returned `BPO-Weekly`. The real failure is a **name collision**:
+`Scorecard` is autonamed `format:{team}-{timeframe}` and Frappe does **not** re-run autoname on
+update (`set_new_name` is only called from `insert()`, `document.py:479`, and `_sync_autoname_field`
+only syncs `field:` autonames), so the row keeps its old name. Creating a metric of a *different*
+frequency then finds no `{team, timeframe}` match, inserts a new `Scorecard`, autoname computes the
+**already-taken** name, and the old `validate_unique` threw a message asserting something false.
+Reproduced before the fix:
+
+```
+edit BPO-Weekly.timeframe -> Annual ; save
+create a Weekly BPO metric
+ValidationError: A Scorecard already exists for team BPO and Weekly timeframe.
+```
+
+No Weekly scorecard existed. The user is blocked from creating a valid metric, and the error names a
+Scorecard that is not there.
 **Done when** either `timeframe` is made immutable after insert, or editing it renames the doc, and
 `ensure_scorecard` cannot be defeated by the resulting mismatch. Test per branch.
+**Resolution** branch **(a) immutable** was chosen over renaming, on Ninety's evidence:
+`architecture.md` §2 already records that a metric's timeframe cannot be converted later, and
+`Scorecard` is one per team × timeframe. `Scorecard.validate_immutable_identity` now refuses any
+change to `team` or `timeframe` on an existing doc, which closes the root cause — a `format:` name
+can no longer go stale. The rename branch was rejected because it would have to rewrite links on both
+`EOS Metric.scorecard` and `Measurable Group.scorecard`, and `DEBT-7`'s missing unique index on
+team+timeframe would leave a rename racy.
+`ensure_scorecard` is not defeated by the mismatch, because the mismatch can no longer be created.
+The residual legacy case — a row whose name predates this fix — stays blocked, but now says what is
+actually true: `Scorecard BPO-Weekly already exists with timeframe Annual. Open that Scorecard instead
+of creating a new one.` (was: a false claim that a Weekly scorecard existed). Both messages are
+covered by tests.
+6 tests added to `test_scorecard.py` (13 → 19): one per immutability field, one proving the other
+fields stay editable, one proving `ensure_scorecard` resolves all four timeframes after a refused
+change, and two for the legacy-row message. Suite: 150/150 (87 integration + 63 unit). No
+`bench migrate` was needed — this is controller-only, no `*.json` changed.
 
 ---
 
-## Block B — Phase 6: Permissions & Roles (5 items, 1 of 5 done)
+## Block B — Phase 6: Permissions & Roles (6 items, 1 of 6 done)
 
-Every DocType is still `System Manager` only — verified against `DocPerm` in the live DB. All 11 child
-tables have no permissions at all. The six roles now exist (`PERM-1` done), but **no DocType grants
-any of them access yet**, so nothing is gated by them until `PERM-2` lands.
+Every DocType is still `System Manager` only — verified against `DocPerm` in the live DB on
+2026-09-28: all 13 standard DocTypes carry exactly one DocPerm row, for `System Manager`, and all 11
+child tables carry none. The six roles exist (`PERM-1` done), but **no DocType grants any of them
+access yet**, so nothing is gated by them until `PERM-2` lands.
 
 ### PERM-2 — S1 · DocPerm blocks per DocType from Ninety's matrix
 **Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
@@ -104,6 +143,10 @@ any of them access yet**, so nothing is gated by them until `PERM-2` lands.
 **Done when** every one of the 13 standard DocTypes carries a DocPerm block, **and**
 `bench --site resolv.localhost migrate` has been run — editing a `permissions` array in a `*.json`
 requires a migrate or the change is inert.
+**Read `PERM-6` first.** Verified 2026-09-28: only the **Data entry** column of the matrix below is a
+plain DocPerm grant. The other five need a `permission_query_conditions` layer, so ticking the "Done
+when" above on its own would make every team's data visible company-wide to all six roles — the
+opposite of Ninety's assigned-teams scoping.
 
 ### PERM-3 — S2 · Team Members may reorder measurables they do not own
 **Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
@@ -121,6 +164,33 @@ asserts each of the six roles sees or does not see it.
 ### PERM-5 — S3 · Worksheet column visibility and status-colour toggles
 **Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
 **Scope** per-team settings for which columns are visible and whether status colours show.
+
+### PERM-6 — S1 · Team-scoped row visibility, which no DocPerm can express
+**Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28** · *found 2026-09-28 while
+triaging `PERM-2`, not in any prior list*
+**Problem** `PERM-2` cites a capability matrix, but a DocPerm row only carries
+`read`/`write`/`create`/`delete`/`submit`/… — it cannot scope a role to *some* teams. Verified in the
+live DB: `tabHas Role` holds **zero** rows for all six roles across 11 users, and `hooks.py` sets no
+`permission_query_conditions` or `has_permission` for this app (only the framework defaults exist).
+Of the matrix's six columns, only **Data entry** is a plain DocPerm grant. The rest map elsewhere:
+
+| Matrix column | Actually implemented by |
+|---|---|
+| Scorecard defaults (company-wide or not) | `PERM-5` |
+| Groups: create / rename / reorder / delete | `PERM-3` (the reorder-in-group rule) |
+| Team scorecard settings | `PERM-5` |
+| Measurable Manager visibility | `PERM-4` |
+| Visibility (assigned teams only) | **this item** |
+| Data entry | `PERM-2` — the one genuine DocPerm column |
+
+**Why it blocks `PERM-2`** adding the six roles to the 13 DocTypes with no scoping layer grants each
+of them company-wide read on every team. Ninety scopes `Manager`, `Team Member` and `Observer` to
+*assigned* teams, so that is a parity regression, not a partial implementation.
+**Done when** `permission_query_conditions` (or User Permissions) restrict `Manager`, `Team Member`
+and `Observer` to their assigned teams on every team-scoped DocType, `Owner`/`Admin`/`Coach` keep
+company-wide access, and a test per role per DocType asserts a user sees their own team's rows and
+not another's. This requires the role→team assignment to be representable — decide whether that is
+`Player.user` + `Player.team` (already modelled, per `architecture.md` §3b) or a Frappe User Permission.
 
 ---
 

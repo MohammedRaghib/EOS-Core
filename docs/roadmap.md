@@ -91,7 +91,7 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
       of all non-archived metrics + off-track summary + trend detection, ordered by
       `Measurable Group.order`. `send_report` emails the team leader (or a chosen recipient) via a
       Jinja template.
-- [x] Tests: `test_level_10_meeting.py` (7), `test_scorecard_report.py` (12) — all green
+- [x] Tests: `test_level_10_meeting.py` (7), `test_scorecard_report.py` (13) — all green
 
 ## Phase 5 — EOS Operating System `[x] DONE`
 
@@ -115,7 +115,7 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
       period (overdue judged against `period_end`), and team Measurables as **On Track / Off Track
       counts** (not green/red) via `build_quarterly_review`
 - [x] Tests: `test_rock.py` (5), `test_to_do.py` (5),
-      `test_quarterly_review.py` (5), `test_vto.py` (4) — all green; full suite 144 tests (63 unit + 81 integration)
+      `test_quarterly_review.py` (5), `test_vto.py` (4) — all green; full suite 150 tests (63 unit + 87 integration)
 
 **Definition of done (met):** all 24 Eos Core DocTypes registered (migrate clean, zero orphans);
 create an Organization → auto-populated `V/TO`, add Rocks with milestones → mark complete cascades
@@ -166,8 +166,11 @@ Fixed in the Block 1 correctness pass:
 | `vto.py` `populate_sections` | Appended all five sections unconditionally, so a V/TO created with one of `core_focus` / `marketing_strategy` supplied skipped population entirely (the guard used `and`) — and would have **duplicated** the supplied section had the guard been `or`. | fixed — appends only the sections that are empty |
 | `team.py` `validate_parent_team` | The `while current:` walk-up unpacked `frappe.db.get_value("Team", current, [...])` with no `None` guard, so a dangling **grandparent** (reachable only after a parent is deleted under a saved child, since Frappe validates links before `validate()`) raised `TypeError: cannot unpack non-iterable NoneType`. | fixed — `as_dict` + readable validation error naming the missing team |
 
-Still open: **none in this table.** Every bug found by this audit is now fixed; `BUG-5` post-dates
-the audit and is tracked in `TODO.md`.
+Still open: **none in this table.** Every bug found by this audit is now fixed.
+
+Found *after* the audit and tracked in `TODO.md`: `BUG-5` and `DATA-2`. `DATA-2` is closed in code
+(`Scorecard.team`/`timeframe` are now immutable, so a `format:` autoname can no longer go stale and
+block metric creation) but not yet committed.
 
 **Smaller items**
 
@@ -191,7 +194,7 @@ the audit and is tracked in `TODO.md`.
   `.editorconfig` / `pyproject.toml` (`indent-style = "tab"`) and would be rewritten wholesale by
   `ruff-format`; and **20** `.py` files are missing a final newline.
 - **The database holds test residue only** (~1 Organization, 1 Team, 1 Player, 1 Scorecard).
-  Nothing has been exercised end-to-end by a user — the 144 green tests are not evidence that any
+  Nothing has been exercised end-to-end by a user — the 150 green tests are not evidence that any
   workflow works in the browser.
 
 ## Block 2 — Ninety parity `[x] DONE`
@@ -231,10 +234,16 @@ Ninety's capability matrix:
 | **Team Member** | no | reorder within a group only | no | yes | no Measurable Manager |
 | **Observer** | no | no | no | no (view only) | no Measurable Manager |
 
-- [ ] Create the six Frappe roles: Owner, Admin, Coach, Manager, Team Member, Observer
-- [ ] DocPerm blocks per DocType reflecting the matrix above
-- [ ] **Team Members may reorder measurables within a group, even measurables they do not own**
-- [ ] Only Owner / Admin / Coach see the Measurable Manager
+- [x] Create the six Frappe roles: Owner, Admin, Coach, Manager, Team Member, Observer (`PERM-1`)
+- [ ] DocPerm blocks per DocType reflecting the matrix above (`PERM-2`)
+- [ ] **Team Members may reorder measurables within a group, even measurables they do not own** (`PERM-3`)
+- [ ] Only Owner / Admin / Coach see the Measurable Manager (`PERM-4`)
+
+> **The matrix above is not all DocPerm work.** Verified 2026-09-28: a DocPerm row cannot scope a
+> role to *some* teams. Of the six columns, only **Data entry** is a plain DocPerm grant; the other
+> five need a `permission_query_conditions` layer. The team-scoping gap is `PERM-6` in `TODO.md`, and
+> it blocks `PERM-2`, because adding the six roles with no scoping layer makes every team's data
+> visible company-wide to all six roles.
 - [ ] Worksheet-level column visibility and status-colour toggles (team-level settings)
 
 ## Phase 7 — Integrations, Bulk UX & Ninety parity `[ ]`

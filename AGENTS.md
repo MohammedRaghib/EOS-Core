@@ -148,7 +148,7 @@ apps/eos_core/
 | Quarterly review | `Quarterly Review` | DONE — team × period snapshot of Rocks/To-Dos/Measurables |
 
 Tests: `bench --site resolv.localhost run-tests --app eos_core` runs the whole suite in one go —
-**81 integration + 63 pure-engine unit = 144 tests**, all green (needs `allow_tests true`, already
+**87 integration + 63 pure-engine unit = 150 tests**, all green (needs `allow_tests true`, already
 enabled on `resolv.localhost`). The split by file:
 
 | Integration test | Count |
@@ -158,13 +158,13 @@ enabled on `resolv.localhost`). The split by file:
 | `doctype/level_10_meeting/test_level_10_meeting.py` | 7 |
 | `doctype/quarterly_review/test_quarterly_review.py` | 5 |
 | `doctype/rock/test_rock.py` | 5 |
-| `doctype/scorecard/test_scorecard.py` | 13 |
+| `doctype/scorecard/test_scorecard.py` | 19 |
 | `doctype/scorecard_report/test_scorecard_report.py` | 13 |
 | `doctype/player/test_player.py` | 4 |
 | `doctype/team/test_team.py` | 4 |
 | `doctype/to_do/test_to_do.py` | 5 |
 | `doctype/vto/test_vto.py` | 4 |
-| **Integration total** | **81** |
+| **Integration total** | **87** |
 | `eos_core/test_roles.py` (roles provisioning) | 4 |
 | `eos_core/test_scorecard_engine.py` (unit, frappe-free) | **63** |
 
@@ -174,6 +174,10 @@ have drifted more than once.
 Permissions are System Manager only for now. The six Ninety roles exist (`PERM-1` done, created by
 `after_migrate` → `eos_core.roles.ensure_roles`), but no DocType references them yet, so they gate
 nothing until `PERM-2` lands. The full role model is `docs/architecture.md` §3h.
+
+**Do not add the six roles to DocTypes before reading `PERM-6`.** A DocPerm row cannot scope a role
+to *some* teams, so flat grants make every team's data company-wide to all six roles — the opposite
+of Ninety's assigned-teams scoping. `PERM-6` is the missing team-scoping layer.
 
 **There is no UI.** `public/js` and `public/css` are empty, there are no client scripts, and only
 four `@frappe.whitelist()` methods (`rock.mark_complete`, `rock.get_rock_summary`,
@@ -244,7 +248,8 @@ end-to-end by a user.
 The **code** for Phases 1–5 exists and is tested, but that is not the same as usable — see the
 `code+tests` / `reachable` distinction in `docs/TODO.md` § Rules. As of 2026-09-28, after Block A was
 closed: **0 open logic bugs**, permissions partially started (the six roles exist but gate nothing —
-`PERM-1` done, `PERM-2` next), and no UI at all.
+`PERM-1` done; `PERM-2` next, with `PERM-6` recording the team-scoping layer it depends on), and no
+UI at all.
 
 Do not reconstruct the work queue from `docs/roadmap.md` or from this file. Both used to carry their
 own copies of the outstanding items, they drifted apart, and that is why the previous setup kept

@@ -188,6 +188,22 @@ erDiagram
 
 - `Scorecard` is one per team × timeframe. Auto-created when a team-scoped metric is saved
   (`EOSMetric.ensure_scorecard`). Format autoname: `{team}-{timeframe}`.
+- **`team` and `timeframe` are immutable after insert** (`Scorecard.validate_immutable_identity`).
+  This is load-bearing, not a convenience. Frappe does **not** re-run autoname on update —
+  `set_new_name` is called only from `insert()` (`frappe/model/document.py:479`), and
+  `_sync_autoname_field` (`base_document.py:1247`) syncs only `field:` autonames — so a `format:`
+  name can never be re-derived. Editing either field would leave a row whose `name` contradicts its
+  own fields, and a metric of a different frequency would then compute an already-taken name and be
+  rejected with a misleading error. `architecture.md` §2 already records that a metric's timeframe
+  cannot be converted later, and Ninety ships one Scorecard per team × timeframe, so immutability is
+  the Ninety-faithful choice over auto-renaming (which would have to rewrite links on both
+  `EOS Metric.scorecard` and `Measurable Group.scorecard`, and would race while `DEBT-7`'s unique
+  index on team+timeframe is still missing).
+- A `Scorecard` whose `name` predates this rule can still exist in an old database. Such a row cannot
+  be repaired by editing it, so a metric needing the taken name is refused — but
+  `Scorecard.validate_unique` now names the row that actually holds the name and **its real
+  timeframe**, rather than asserting that a scorecard for the requested team and timeframe exists
+  when none does.
 - `Measurable Group` organizes metrics within a Scorecard (up to 20 per scorecard, unique name per
   scorecard). Not a Child DocType — Standard, so `EOS Metric.group` can link to it.
 - **Range operators**: `Inside min/max` (on-track when value within bounds), `Outside min/max`
@@ -576,6 +592,13 @@ Phase status is in `docs/roadmap.md`; the live work queue with stable IDs is in
   and `Quarterly Review` uniqueness is weaker: it is an **app-level Python check only, with no DB
   index**, so neither is race-proof. A duplicate report or review can be created by two concurrent
   requests. `VTO.organization` is likewise a real `unique: 1` index.
+- `Scorecard` uniqueness is enforced by the **name**, not by a composite index: autoname
+  `format:{team}-{timeframe}` is injective over the four fixed timeframes (a team name may contain
+  hyphens, but no timeframe does), and because both fields are immutable the name and the field pair
+  cannot diverge — except for a legacy row, which is why `validate_unique` reports the name holder's
+  real timeframe rather than the requested one. `Scorecard` still has **no** index on team+timeframe
+  (see `DEBT-7`/`DEBT-12`); immutability removes the corruption the index would have guarded
+  against, but the check remains application-level and so is not race-proof.
 - `VTO` and `Measurable Group` have **no `autoname` at all**, so both use Frappe hash naming and
   their record `name` is a hash. They differ in what that means in a list view: `Measurable Group`
   sets `title_field: "group_name"` and `search_fields: "group_name"`, so it displays the group

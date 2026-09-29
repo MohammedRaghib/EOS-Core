@@ -18,6 +18,122 @@ class TestScorecard(IntegrationTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			frappe.get_doc({"doctype": "Scorecard", "team": "SC Team", "timeframe": "Weekly"}).insert()
 
+	def test_timeframe_cannot_be_changed_after_insert(self):
+		frappe.get_doc({"doctype": "Team", "team_name": "SC Frozen"}).insert()
+		scorecard = frappe.get_doc(
+			{"doctype": "Scorecard", "team": "SC Frozen", "timeframe": "Weekly"}
+		).insert()
+		scorecard.timeframe = "Annual"
+		with self.assertRaises(frappe.ValidationError) as caught:
+			scorecard.save()
+		self.assertIn("Timeframe", str(caught.exception))
+		self.assertIn("cannot be changed", str(caught.exception))
+		self.assertEqual(
+			frappe.db.get_value("Scorecard", scorecard.name, "timeframe"), "Weekly"
+		)
+
+	def test_team_cannot_be_changed_after_insert(self):
+		frappe.get_doc({"doctype": "Team", "team_name": "SC Frozen A"}).insert()
+		frappe.get_doc({"doctype": "Team", "team_name": "SC Frozen B"}).insert()
+		scorecard = frappe.get_doc(
+			{"doctype": "Scorecard", "team": "SC Frozen A", "timeframe": "Weekly"}
+		).insert()
+		scorecard.team = "SC Frozen B"
+		with self.assertRaises(frappe.ValidationError) as caught:
+			scorecard.save()
+		self.assertIn("Team", str(caught.exception))
+		self.assertIn("cannot be changed", str(caught.exception))
+		self.assertEqual(
+			frappe.db.get_value("Scorecard", scorecard.name, "team"), "SC Frozen A"
+		)
+
+	def test_non_identity_fields_stay_editable(self):
+		frappe.get_doc({"doctype": "Team", "team_name": "SC Editable"}).insert()
+		scorecard = frappe.get_doc(
+			{"doctype": "Scorecard", "team": "SC Editable", "timeframe": "Weekly"}
+		).insert()
+		scorecard.description = "Company weekly scorecard"
+		scorecard.archived = 1
+		scorecard.save()
+		reloaded = frappe.get_doc("Scorecard", scorecard.name)
+		self.assertEqual(reloaded.description, "Company weekly scorecard")
+		self.assertEqual(reloaded.archived, 1)
+
+	def test_ensure_scorecard_resolves_every_timeframe(self):
+		frappe.get_doc({"doctype": "Team", "team_name": "SC Timeframes"}).insert()
+		frappe.get_doc(
+			{
+				"doctype": "Player",
+				"player_name": "SC Timeframes Leader",
+				"user": "Administrator",
+				"team": "SC Timeframes",
+			}
+		).insert()
+		weekly = frappe.get_doc(
+			{"doctype": "Scorecard", "team": "SC Timeframes", "timeframe": "Weekly"}
+		).insert()
+		blocked = frappe.get_doc("Scorecard", weekly.name)
+		blocked.timeframe = "Annual"
+		with self.assertRaises(frappe.ValidationError):
+			blocked.save()
+		for timeframe in ("Weekly", "Monthly", "Quarterly", "Annual"):
+			metric = frappe.get_doc(
+				{
+					"doctype": "EOS Metric",
+					"metric_name": f"SC TF {timeframe}",
+					"owner": "Administrator",
+					"team": "SC Timeframes",
+					"target_value": 10,
+					"operator": ">=",
+					"frequency": timeframe,
+				}
+			).insert()
+			self.assertEqual(metric.scorecard, f"SC Timeframes-{timeframe}")
+
+	def test_name_collision_names_the_timeframe_that_holds_the_name(self):
+		frappe.get_doc({"doctype": "Team", "team_name": "SC Legacy"}).insert()
+		stale = frappe.get_doc(
+			{"doctype": "Scorecard", "team": "SC Legacy", "timeframe": "Weekly"}
+		).insert()
+		frappe.db.set_value("Scorecard", stale.name, "timeframe", "Annual")
+		with self.assertRaises(frappe.ValidationError) as caught:
+			frappe.get_doc(
+				{"doctype": "Scorecard", "team": "SC Legacy", "timeframe": "Weekly"}
+			).insert()
+		message = str(caught.exception)
+		self.assertIn(frappe.bold("SC Legacy-Weekly"), message)
+		self.assertIn(frappe.bold("Annual"), message)
+
+	def test_legacy_stale_scorecard_does_not_report_a_missing_weekly_scorecard(self):
+		frappe.get_doc({"doctype": "Team", "team_name": "SC Legacy Metric"}).insert()
+		frappe.get_doc(
+			{
+				"doctype": "Player",
+				"player_name": "SC Legacy Metric Leader",
+				"user": "Administrator",
+				"team": "SC Legacy Metric",
+			}
+		).insert()
+		stale = frappe.get_doc(
+			{"doctype": "Scorecard", "team": "SC Legacy Metric", "timeframe": "Weekly"}
+		).insert()
+		frappe.db.set_value("Scorecard", stale.name, "timeframe", "Annual")
+		with self.assertRaises(frappe.ValidationError) as caught:
+			frappe.get_doc(
+				{
+					"doctype": "EOS Metric",
+					"metric_name": "SC Legacy Weekly Metric",
+					"owner": "Administrator",
+					"team": "SC Legacy Metric",
+					"target_value": 10,
+					"operator": ">=",
+					"frequency": "Weekly",
+				}
+			).insert()
+		message = str(caught.exception)
+		self.assertIn(frappe.bold("Annual"), message)
+		self.assertNotIn(f"and {frappe.bold('Weekly')} timeframe", message)
+
 	def test_group_limit_and_unique_name(self):
 		frappe.get_doc({"doctype": "Team", "team_name": "SC Group Team"}).insert()
 		scorecard = frappe.get_doc({"doctype": "Scorecard", "team": "SC Group Team", "timeframe": "Weekly"}).insert()
