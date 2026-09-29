@@ -34,7 +34,7 @@ class TestScorecardReport(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "SR Good",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"team": team.name,
 				"target_value": 100,
 				"operator": ">=",
@@ -51,7 +51,7 @@ class TestScorecardReport(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "SR Bad",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"team": team.name,
 				"target_value": 100,
 				"operator": ">=",
@@ -80,6 +80,26 @@ class TestScorecardReport(IntegrationTestCase):
 		rows = {row.metric: row for row in report.report_metrics}
 		self.assertEqual(rows["SR Bad"].status, "Off Track")
 		self.assertEqual(rows["SR Bad"].trend, 3)
+
+	def test_snapshot_stores_the_business_owner_not_the_creator(self):
+		team = self._seed_metrics()
+		report = frappe.get_doc(
+			{
+				"doctype": "Scorecard Report",
+				"team": team.name,
+				"week_start_date": "2026-09-07",
+			}
+		).insert()
+		self.assertEqual(len(report.report_metrics), 2)
+		for row in report.report_metrics:
+			self.assertEqual(row.owner_user, "Administrator")
+			self.assertEqual(
+				row.owner_user,
+				frappe.db.get_value("EOS Metric", row.metric, "owner_user"),
+			)
+			self.assertEqual(
+				frappe.db.get_value("Scorecard Report Metric", row.name, "owner"), "Administrator"
+			)
 
 	def test_snapshot_ignores_later_entries(self):
 		team = self._seed_metrics()
@@ -307,7 +327,7 @@ class TestScorecardReport(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "SR Sparse",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"team": team.name,
 				"target_value": 100,
 				"operator": ">=",
@@ -340,7 +360,7 @@ class TestScorecardReport(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "SR Unscored",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"team": team.name,
 				"target_value": 100,
 				"operator": ">=",

@@ -39,7 +39,7 @@ erDiagram
 
     "EOS Metric" {
         string metric_name PK, UK
-        string owner FK "User"
+        string owner_user FK "User"
         float target_value
         string operator ">=", "<=", "=="
         string frequency "Weekly/Monthly/Quarterly/Annual"
@@ -63,6 +63,10 @@ erDiagram
 - `Scorecard Entry.metric` links back to the owning `EOS Metric` and is auto-filled on save.
 - Naming: `EOS Metric` is named by `metric_name` (`autoname: field:metric_name`). Child table
   records use Frappe's default hash naming.
+- **`owner_user` is the Measurable's business owner and `owner` is Frappe's creator** (`PERM-9`,
+  2026-09-29). `EOS Metric.owner_user` is a free `Link → User` that can be changed at any time;
+  `EOS Metric.owner` is the standard, set-only-once document owner and is not declared as a field.
+  The two are separate by construction, not by convention — see §3h.
 
 ## 3b. People & Structure (Phase 2 — implemented)
 
@@ -104,10 +108,10 @@ erDiagram
   unique. Ninety states plainly that "Many Ninety users are members of multiple teams", invites users
   with a **Team(s)** dropdown, and resolves ownership by Seat where a user holds several. Making
   `user` unique would break that parity, so it stays unindexed by design.
-  - **Which team owns a multi-team user?** The metric's own `team` field disambiguates. Ownership is
-    always the pair `(user, team)` — never `user` alone — which is what
-    `EOSMetric.validate_owner_team` already queries, so no lookup in the app is ambiguous. Every
-    other consumer resolves a `Player` by its own `name` (via `Team.leader`), not by user.
+   - **Which team owns a multi-team user?** The metric's own `team` field disambiguates. Ownership is
+     always the pair `(user, team)` — never `user` alone — which is what
+     `EOSMetric.validate_owner_team` already queries, so no lookup in the app is ambiguous. Every
+     other consumer resolves a `Player` by its own `name` (via `Team.leader`), not by user.
   - **What is enforced** is one seat per person *per team*: `Player.validate_unique_seat_in_team`
     rejects a second `Player` for the same `(user, team)`. Without it, a team could hold two
     `Player` rows for one login and the Seat that owns a measurable would be unresolvable.
@@ -119,10 +123,10 @@ erDiagram
 - **Team rules** (`Team.validate_parent_team`): rejects a parent chain that loops back to the team,
   and rejects a parent whose `Organization` differs from the child's.
 - **Metric scoping rule** (`EOSMetric.validate_owner_team`): an `EOS Metric` with `team` set requires
-  its `owner` (a User) to have a `Player` record in that team. Metrics without `team` are
+  its `owner_user` (a User) to have a `Player` record in that team. Metrics without `team` are
   organization-wide and skip the rule.
 
-## 3h. Roles (Phase 6 — implemented, except the owner-field gap)
+## 3h. Roles (Phase 6 — implemented)
 
 Ninety's six roles are created as Frappe `Role` records with `is_custom = 1` and `desk_access = 1`:
 
@@ -236,27 +240,56 @@ Four guards in `eos_core/permissions.py` close that gap:
    Team Members `Adjust goals of Measurables` and `Organize Scorecards`.
 2. `validate_content_owner` refuses a `Coach` or `Observer` as the owner of a Measurable or a Rock.
    Ninety repeats the rule for Measurables, Rocks, To-Dos, Issues and Headlines; a DocPerm cannot see
-   *which user* a field points at.
+   *which user* a field points at. Both tools carry the same field name — `owner_user` — so the guard
+   covers `EOS Metric` and `Rock` with one call shape.
 3. `ScorecardReport.send_report` checks the `email` permission itself. Frappe's `run_doc_method`
    only checks **read**, so a read-only role can invoke any whitelisted method on a document it can
    see — and this one sends mail before its own save would fail on the missing write.
 4. `validate_content_deletion` runs in `EOSMetric.on_trash`. A DocPerm `delete` row is all-or-nothing
    per role, but Ninety lets a `Manager` or `Team Member` remove only a Measurable they own, so
    `Manager` and `Team Member` are refused on anyone else's while `Owner`, `Admin` and `Coach` are not.
-   Because `owner` is Frappe's creator field, "own" currently means "created" — see the gap below.
+   "Own" is read from `owner_user`, so it means *business owner*, not *creator*.
 
-### The known gap: `EOS Metric.owner` is not a business field
+### Measurable ownership: `owner_user`, not `owner`
 
-`owner` collides with Frappe's document owner, which is in `meta.get_set_only_once_fields()`. Frappe
-overwrites it with the session user on insert and refuses any later change — the insert path is
-unconditional (`frappe/model/base_document.py:753`, `if not self.creation: self.owner = self.modified_by
-= frappe.session.user`), so passing an `owner` to `insert()` has no effect at all. A Measurable's owner
-is therefore always its creator, which means a `Team Member` — who has no `create` on `EOS Metric` —
-can never own one, and there is nothing for a Measurable Manager's "Reassign" to act on.
-`validate_owner_team` is really a rule about who may create a Measurable on a team. `Rock` is
-unaffected: its business field is `owner_user`, which is free. Tracked as `PERM-9`; the fix is a
-separate owner field, not a rename of `owner`. Guard 4 above works around it correctly — "own" reads
-as "created" — but that is a coincidence, not a design.
+`PERM-9`, 2026-09-29. `EOS Metric` carries two different owners and they are not interchangeable:
+
+| Column | Meaning | Mutable |
+|---|---|---|
+| `owner` | Frappe's document creator. Present in `frappe.db.DEFAULT_COLUMNS`, so it exists on every DocType whether or not the DocType declares it, and it is in `meta.get_set_only_once_fields()`. | **No** — `frappe.CannotChangeConstantError` on any later change. |
+| `owner_user` | The Measurable's business owner. A declared `Link → User`, `reqd`, in the list view. | **Yes**, at any time. |
+
+This matters because the field named `owner` was previously *declared* on `EOS Metric`, which made the
+creator look like a business field and produced three real consequences: a Measurable's owner could
+never be reassigned, only its creator could own one, and Ninety's rule that **Team Members own
+Measurables** was unsatisfiable — a `Team Member` has no `create` on `EOS Metric`. `validate_owner_team`
+was therefore really a rule about who may *create* a Measurable on a team, and `PERM-12`'s ownership-
+scoped delete could only ever mean "a Measurable I created".
+
+`EOS Metric.owner_user` is now the business field, matching `Rock.owner_user` and `Issue.owner_user`.
+Frappe's `owner` column stays exactly where it was — it was **not** dropped, because
+`frappe/database/database.py:97` lists it in `DEFAULT_COLUMNS` and the schema sync never drops a
+column that is in that tuple. `EOSMetric.before_insert` defaults `owner_user` to the session user,
+which is what Frappe used to do to `owner` implicitly.
+
+`eos_core.patches.backfill_measurable_owner` copies `owner` into `owner_user` for any row that
+predates the change, so an existing database comes back from `bench migrate` with real owners rather
+than nulls. It is idempotent and registered under `[post_model_sync]`.
+
+Three places still speak the word "owner" in a different vocabulary, deliberately:
+
+- `ScorecardReport._build_metric_block` puts the value into the engine block under the key `owner`,
+  because `build_scorecard_report`'s block dict has its own vocabulary (`name`, `actual`, `target`,
+  `statuses`) that is not a row of `EOS Metric`.
+- `Scorecard.get_rollup_view` returns it under the payload key `owner`, which is the endpoint's read
+  contract.
+- `_email_context` exposes `owner`, because `templates/emails/weekly_scorecard_report.html` renders
+  `{{ row.owner }}`.
+
+What is now asserted, one test each: reassignment moves `owner_user` and leaves `owner` alone; a
+`Team Member` with a seat in the team may be assigned one; an assignee with no seat in the team is
+refused by `validate_owner_team`; `validate_content_deletion` follows `owner_user`, so a Manager who
+created but no longer owns is refused and one who owns but did not create may delete.
 
 ## 3c. Scorecards, Groups & Formulas (Phase 3 — implemented)
 
@@ -410,7 +443,7 @@ erDiagram
     "Scorecard Report Metric" {
         string metric FK "EOS Metric"
         string group "Measurable Group name"
-        string owner FK "User"
+        string owner_user FK "User"
         float actual_value
         float target_value
         string status "On Track/Off Track"
@@ -672,7 +705,7 @@ Phase status is in `docs/roadmap.md`; the live work queue with stable IDs is in
 [`TODO.md`](TODO.md). The target model adds:
 
 - **Structure (Phase 2 — DONE)**: `Organization` → `Team` (nested) → `Player`; metrics scoped via
-  `EOS Metric.team` with an owner-in-team rule.
+  `EOS Metric.team` with an `owner_user`-in-team rule.
 - **Scorecard/groups (Phase 3 — DONE)**: `Scorecard` header (per team × timeframe), `Measurable Group`,
   Formula Builder (Smart Measurables), `prorate_for_period`, `count_consecutive_off_track`.
   Forecasting/custom period goals are deferred.

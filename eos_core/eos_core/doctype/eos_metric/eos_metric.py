@@ -18,6 +18,9 @@ RANGE_OPERATORS = ("Inside min/max", "Outside min/max")
 
 
 class EOSMetric(Document):
+	def before_insert(self):
+		self.owner_user = self.owner_user or frappe.session.user
+
 	def validate(self):
 		validate_data_entry_only(self)
 		self.validate_owner_team()
@@ -39,22 +42,22 @@ class EOSMetric(Document):
 				)
 
 	def validate_owner_content_role(self):
-		validate_content_owner(self, "owner", "Measurable")
+		validate_content_owner(self, "owner_user", "Measurable")
 
 	def on_trash(self):
-		validate_content_deletion(self, "Measurable")
+		validate_content_deletion(self, "Measurable", owner_field="owner_user")
 
 	def validate_owner_team(self):
-		if not self.team or not self.owner:
+		if not self.team or not self.owner_user:
 			return
-		if frappe.db.exists("Player", {"user": self.owner, "team": self.team}):
+		if frappe.db.exists("Player", {"user": self.owner_user, "team": self.team}):
 			return
-		if not frappe.db.exists("Player", {"user": self.owner}):
+		if not frappe.db.exists("Player", {"user": self.owner_user}):
 			frappe.throw(
-				f"Owner {frappe.bold(self.owner)} has no Player record in team {frappe.bold(self.team)}."
+				f"Owner {frappe.bold(self.owner_user)} has no Player record in team {frappe.bold(self.team)}."
 			)
 		frappe.throw(
-			f"Owner {frappe.bold(self.owner)} is not a Player in team {frappe.bold(self.team)}."
+			f"Owner {frappe.bold(self.owner_user)} is not a Player in team {frappe.bold(self.team)}."
 		)
 
 	def validate_range_target(self):

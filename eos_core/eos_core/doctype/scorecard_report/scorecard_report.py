@@ -50,7 +50,7 @@ class ScorecardReport(Document):
 				{
 					"metric": metric["name"],
 					"group": metric["group"],
-					"owner": metric["owner"],
+					"owner_user": metric["owner"],
 					"actual_value": metric["actual"],
 					"target_value": metric["target"],
 					"status": metric["status"],
@@ -99,7 +99,7 @@ class ScorecardReport(Document):
 		metric = frappe.db.get_value(
 			"EOS Metric",
 			metric_name,
-			["owner", "target_value", "operator", "unit"],
+			["owner_user", "target_value", "operator", "unit"],
 			as_dict=True,
 		)
 		if not metric:
@@ -110,7 +110,7 @@ class ScorecardReport(Document):
 			"name": metric_name,
 			"group": group_name,
 			"group_key": group_key,
-			"owner": metric.owner,
+			"owner": metric.owner_user,
 			"actual": latest.actual_value if latest else None,
 			"target": metric.target_value,
 			"operator": metric.operator,
@@ -179,7 +179,7 @@ class ScorecardReport(Document):
 				{
 					"name": row.metric,
 					"group": row.group,
-					"owner": row.owner,
+					"owner": row.owner_user,
 					"actual": row.actual_value,
 					"target": row.target_value,
 					"status": row.status,

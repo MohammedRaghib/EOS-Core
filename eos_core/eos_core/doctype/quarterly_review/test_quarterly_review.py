@@ -53,7 +53,7 @@ class TestQuarterlyReview(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "QR Snapshot Metric",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"team": team.name,
 				"target_value": 100,
 				"operator": ">=",

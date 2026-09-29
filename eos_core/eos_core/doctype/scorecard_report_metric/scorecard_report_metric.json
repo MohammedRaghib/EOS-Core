@@ -4,11 +4,11 @@
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
- "field_order": [
-  "metric",
-  "group",
-  "owner",
-  "column_break_1",
+  "field_order": [
+   "metric",
+   "group",
+   "owner_user",
+   "column_break_1",
   "actual_value",
   "target_value",
   "status",
@@ -29,13 +29,13 @@
    "fieldtype": "Data",
    "label": "Group"
   },
-  {
-   "fieldname": "owner",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Owner",
-   "options": "User"
-  },
+   {
+    "fieldname": "owner_user",
+    "fieldtype": "Link",
+    "in_list_view": 1,
+    "label": "Owner",
+    "options": "User"
+   },
   {
    "fieldname": "column_break_1",
    "fieldtype": "Column Break"

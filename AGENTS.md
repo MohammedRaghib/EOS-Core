@@ -51,7 +51,7 @@ bench --site resolv.localhost install-app eos_core       # first-time install (u
 bench --site resolv.localhost execute <path.to.function> --kwargs '{"k":"v"}'   # run one-off
 bench --site resolv.localhost console                    # interactive shell (pipable for tests)
 bench --site resolv.localhost list-doctypes -a           # confirm DocType is registered
-bench run-tests --app eos_core --site resolv.localhost   # full suite (243)
+bench run-tests --app eos_core --site resolv.localhost   # full suite (248)
 bench run-tests --module eos_core.test_permissions --site resolv.localhost   # permission layer alone
 ```
 
@@ -105,7 +105,7 @@ apps/eos_core/
     ├── permissions.py           # team scoping, role precedence, the four DocPerm guards
     ├── roles.py                 # ensure_roles, wired to after_migrate
     ├── hooks.py                 # permission_query_conditions + has_permission wiring
-    ├── test_permissions.py      # 92 tests: 26 hand-written + 66 generated role×DocType
+    ├── test_permissions.py      # 96 tests: 30 hand-written + 66 generated role×DocType
     └── eos_core/doctype/
         ├── eos_metric/          # EOS Metric (Standard) + Table field `entries`
         ├── scorecard_entry/     # Scorecard Entry (Child, istable=1)
@@ -137,7 +137,7 @@ apps/eos_core/
 
 | Area | DocType / module | Status |
 |---|---|---|
-| Metric master data | `EOS Metric` | DONE — `metric_name`, `owner`, `team`, `target_value`, `operator` (`>=`/`<=`/`==`/`Inside min/max`/`Outside min/max`), `min_value`, `max_value`, `frequency`, `unit`, `unit_type`, `rollup`, `is_smart`, `formula`, `scorecard`, `group`, `archived`, `description`, `entries` |
+| Metric master data | `EOS Metric` | DONE — `metric_name`, `owner_user`, `team`, `target_value`, `operator` (`>=`/`<=`/`==`/`Inside min/max`/`Outside min/max`), `min_value`, `max_value`, `frequency`, `unit`, `unit_type`, `rollup`, `is_smart`, `formula`, `scorecard`, `group`, `archived`, `description`, `entries` |
 | Period records | `Scorecard Entry` | DONE — `metric`, `week_start_date`, `actual_value`, `status` (On Track/Off Track), `is_manual` |
 | Scoring engine | `eos_core.scorecard_engine` | DONE — status: `compute_status`, `compute_status_indicator`, `is_period_complete`, `completed_period_statuses`, `recent_completed_period_starts`. Achievement: `compute_achievement`. Rollup: `prorate_for_period`, `week_overlap_days`, `week_overlap_ratio`, `aggregate_entries_for_period`, `normalise_view_by`, `period_bounds`, `advance_period`, `period_label`, `rollup_periods`, `quarter_bounds`. Formulas: `extract_variables`, `evaluate_formula`, `validate_formula_syntax`. Aggregation/report: `aggregate_values`, `scorecard_summary`, `sort_metrics_by_group`, `build_scorecard_review_lines`, `build_scorecard_report`, `build_quarterly_review`, `count_consecutive_off_track`, `rollup_rock_summary`, `rollup_todo_summary`, `default_agenda_sections` |
 | Auto-status + formulas | `EOSMetric.validate` | DONE — range validation, auto-create Scorecard, formula validation/recalc, entry status loop |
@@ -153,12 +153,12 @@ apps/eos_core/
 | Quarterly review | `Quarterly Review` | DONE — team × period snapshot of Rocks/To-Dos/Measurables |
 
 Tests: `bench --site resolv.localhost run-tests --app eos_core` runs the whole suite in one go —
-**180 integration + 63 pure-engine unit = 243 tests**, all green (needs `allow_tests true`, already
+**185 integration + 63 pure-engine unit = 248 tests**, all green (needs `allow_tests true`, already
 enabled on `resolv.localhost`). The split by file:
 
 | Integration test | Count |
 |---|---|
-| `eos_core/test_permissions.py` (26 hand-written + 66 generated) | 92 |
+| `eos_core/test_permissions.py` (30 hand-written + 66 generated) | 96 |
 | `eos_core/test_roles.py` (roles provisioning — touches the DB) | 4 |
 | `doctype/eos_metric/test_eos_metric.py` | 12 |
 | `doctype/issue/test_issue.py` | 5 |
@@ -166,22 +166,22 @@ enabled on `resolv.localhost`). The split by file:
 | `doctype/quarterly_review/test_quarterly_review.py` | 5 |
 | `doctype/rock/test_rock.py` | 5 |
 | `doctype/scorecard/test_scorecard.py` | 19 |
-| `doctype/scorecard_report/test_scorecard_report.py` | 14 |
+| `doctype/scorecard_report/test_scorecard_report.py` | 15 |
 | `doctype/player/test_player.py` | 4 |
 | `doctype/team/test_team.py` | 4 |
 | `doctype/to_do/test_to_do.py` | 5 |
 | `doctype/vto/test_vto.py` | 4 |
-| **Integration total** | **180** |
+| **Integration total** | **185** |
 | `eos_core/test_scorecard_engine.py` (unit, frappe-free) | **63** |
-| **Total** | **243** |
+| **Total** | **248** |
 
-The 180 covers every suite that needs a database, `test_roles.py` included — Frappe's runner counts
+The 185 covers every suite that needs a database, `test_roles.py` included — Frappe's runner counts
 it as integration, so it belongs in that block. (Corrected 2026-09-29: the table previously listed
 `test_roles.py` *below* the 180 total, so its rows summed to 176 and did not reconcile.)
 
 Re-derive these with `grep -rc 'def test_'` rather than trusting the table — the documented totals
 have drifted more than once. `test_permissions.py` is the one file where that method undercounts by
-a lot: 26 in the source, 92 in the run, because it generates
+a lot: 30 in the source, 96 in the run, because it generates
 `test_visibility_<doctype>_<role>` for 11 DocTypes × 6 roles. `test_roles.py` is the other: 4 either
 way. The **total** is the number to trust.
 
@@ -198,14 +198,21 @@ where `user` matches. A `User Permission` on `Team` would be wrong twice over: i
 link value per user per DocType, and Ninety users can belong to several teams, and it would be a
 second competing source of truth for what `validate_owner_team` already resolves.
 
-**Known gaps.** `EOS Metric.owner` is Frappe's immutable document creator, not a business field, so
-a Measurable's owner is fixed at creation, a `Team Member` can never own one, and nothing can be
-reassigned. `Rock` is fine — its business field is `owner_user`. Tracked as `PERM-9`; do not work
-around it by renaming or repurposing `owner`. Separately, `To Do`, `Issue` and `Rock` have **no
-`archived` field**, so Ninety's archive and archive view cannot exist for them at all (`DATA-3`).
-Everything else in the roles article now matches the grants in the DB, row for row (`PERM-12`, closed
-2026-09-29, `676fde8`). Do not "simplify" that by deleting the guard in `EOSMetric.on_trash`: Ninety
-scopes Measurable removal to the KPIs the user owns, so a bare `delete` DocPerm row over-grants.
+**Measurable ownership is `owner_user`.** `EOS Metric.owner_user` is the business owner — declared,
+`Link → User`, freely reassignable. `EOS Metric.owner` is Frappe's immutable document creator and is
+**not** declared as a field; the column still exists because it is in `frappe.db.DEFAULT_COLUMNS`.
+Keep the two apart: `owner_user` is what `validate_owner_team`, `validate_content_owner` and
+`validate_content_deletion` read, and what the report snapshot and the rollup view show.
+`EOSMetric.before_insert` defaults `owner_user` to the session user, which is what Frappe used to do
+to `owner` implicitly. `Scorecard Report Metric` was renamed the same way for the same reason.
+`eos_core/patches/backfill_measurable_owner` backfills it on migrate. Full rationale in
+`docs/architecture.md` §3h.
+
+**Known gaps.** `To Do`, `Issue` and `Rock` have **no `archived` field**, so Ninety's archive and
+archive view cannot exist for them at all (`DATA-3`). Everything else in the roles article now
+matches the grants in the DB, row for row (`PERM-12`, closed 2026-09-29, `676fde8`). Do not
+"simplify" that by deleting the guard in `EOSMetric.on_trash`: Ninety scopes Measurable removal to the
+KPIs the user owns, so a bare `delete` DocPerm row over-grants.
 
 **A DocPerm cannot scope a role to *some* teams.** That is why `eos_core/permissions.py` exists, and
 it is the thing to remember before touching any grant: adding a flat role to a DocType without the
@@ -248,8 +255,14 @@ end-to-end by a user.
   `datetime.date` → `TypeError: '<' not supported between instances of 'datetime.date' and 'str'`.
   Pass it to the engine's `_as_date`-backed helpers instead of comparing raw. Both the Scorecard
   Report and the L10 Scorecard Review rely on this.
-- **Seeding a metric in a test requires a `Player` in that team** for the owner user, or
-  `EOSMetric.validate_owner_team` throws *"Owner ... has no Player record in team ..."*.
+- **Seeding a metric in a test requires a `Player` in that team** for the `owner_user`, or
+  `EOSMetric.validate_owner_team` throws *"Owner ... has no Player record in team ..."*. Passing
+  `owner_user` explicitly is optional on insert — `before_insert` defaults it to the session user.
+- **`owner` is never a business field.** It is Frappe's immutable creator column and it is present on
+  every DocType whether or not the JSON declares it (`frappe.db.DEFAULT_COLUMNS`), so the schema sync
+  will not drop it and the error you get from touching it is `CannotChangeConstantError`, not a
+  validation message about ownership. Use `owner_user` on `EOS Metric`, `Rock`, `Issue`, `To Do` and
+  `Scorecard Report Metric`.
 - **Write tests date-independently.** Always pass explicit dates or an explicit `as_of`; never let
   a test depend on `date.today()`. `test_rock` had a latent time bomb that would only have failed
   from 2026-10-15. Week start dates are Mondays (`2026-08-17`, `2026-08-24`, …), and the status
@@ -279,11 +292,11 @@ end-to-end by a user.
 **`docs/TODO.md` is the only live work queue.** Read it before you start and before you finish.
 
 The **code** for Phases 1–5 exists and is tested, but that is not the same as usable — see the
-`code+tests` / `reachable` distinction in `docs/TODO.md` § Rules. As of 2026-09-29: **1 open data gap**
-(`DATA-3` — `Rock`, `Issue` and `To Do` have no `archived` field), permissions built (`PERM-1`,
-`PERM-2`, `PERM-6`, `PERM-7`, `PERM-8`, `PERM-10`, `PERM-11`, `PERM-12` done). Open in Block B:
-`PERM-9` (`EOS Metric.owner` is not a real owner field), and `PERM-3` / `PERM-4` / `PERM-5`, which
-are UI-blocked rather than permission-blocked. No UI at all.
+`code+tests` / `reachable` distinction in `docs/TODO.md` § Rules. As of 2026-09-29: **Block B is
+complete** — `PERM-1`, `PERM-2`, `PERM-6`, `PERM-7`, `PERM-8`, `PERM-9`, `PERM-10`, `PERM-11`,
+`PERM-12` all done. **1 open data gap** (`DATA-3` — `Rock`, `Issue` and `To Do` have no `archived`
+field). `PERM-3` / `PERM-4` / `PERM-5` are open but **UI-blocked**, not permission-blocked. No UI at
+all.
 
 Do not reconstruct the work queue from `docs/roadmap.md` or from this file. Both used to carry their
 own copies of the outstanding items, they drifted apart, and that is why the previous setup kept

@@ -16,7 +16,7 @@ class TestEOSMetric(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "GM Auto Status",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"target_value": 100,
 				"operator": ">=",
 				"frequency": "Weekly",
@@ -43,7 +43,7 @@ class TestEOSMetric(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "GM Team Metric",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"team": team.name,
 				"target_value": 100,
 				"operator": ">=",
@@ -57,7 +57,7 @@ class TestEOSMetric(IntegrationTestCase):
 				{
 					"doctype": "EOS Metric",
 					"metric_name": "GM Bad Metric",
-					"owner": "Administrator",
+					"owner_user": "Administrator",
 					"team": other.name,
 					"target_value": 100,
 					"operator": ">=",
@@ -80,7 +80,7 @@ class TestEOSMetric(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "GM Scorecard Metric",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"team": team.name,
 				"target_value": 100,
 				"operator": ">=",
@@ -99,7 +99,7 @@ class TestEOSMetric(IntegrationTestCase):
 				{
 					"doctype": "EOS Metric",
 					"metric_name": "GM Range No Bound",
-					"owner": "Administrator",
+					"owner_user": "Administrator",
 					"operator": "Inside min/max",
 					"frequency": "Weekly",
 				}
@@ -109,7 +109,7 @@ class TestEOSMetric(IntegrationTestCase):
 				{
 					"doctype": "EOS Metric",
 					"metric_name": "GM Range Min Above Max",
-					"owner": "Administrator",
+					"owner_user": "Administrator",
 					"min_value": 100,
 					"max_value": 50,
 					"operator": "Inside min/max",
@@ -122,7 +122,7 @@ class TestEOSMetric(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "GM Range Status",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"min_value": 80,
 				"max_value": 120,
 				"operator": "Inside min/max",
@@ -140,7 +140,7 @@ class TestEOSMetric(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "GM Formula Base",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"target_value": 50,
 				"operator": ">=",
 				"frequency": "Weekly",
@@ -153,7 +153,7 @@ class TestEOSMetric(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "GM Formula Smart",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"is_smart": 1,
 				"formula": "{GM Formula Base} * 2",
 				"target_value": 100,
@@ -176,7 +176,7 @@ class TestEOSMetric(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "GM Resave",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"target_value": 100,
 				"operator": ">=",
 				"frequency": "Weekly",
@@ -195,7 +195,7 @@ class TestEOSMetric(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "GM Div Base",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"target_value": 50,
 				"operator": ">=",
 				"frequency": "Weekly",
@@ -207,7 +207,7 @@ class TestEOSMetric(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "GM Div Smart",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"is_smart": 1,
 				"formula": "{GM Div Base} / (1 - 0.5)",
 				"target_value": 100,
@@ -224,7 +224,7 @@ class TestEOSMetric(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "GM Partial Base",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"target_value": 50,
 				"operator": ">=",
 				"frequency": "Weekly",
@@ -236,7 +236,7 @@ class TestEOSMetric(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "GM Partial Smart",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"is_smart": 1,
 				"formula": "{GM Partial Base} * 2",
 				"target_value": 100,
@@ -260,7 +260,7 @@ class TestEOSMetric(IntegrationTestCase):
 				{
 					"doctype": "EOS Metric",
 					"metric_name": "GM Self Reference",
-					"owner": "Administrator",
+					"owner_user": "Administrator",
 					"is_smart": 1,
 					"formula": "{GM Self Reference} + 1",
 					"frequency": "Weekly",
@@ -304,7 +304,7 @@ class TestEOSMetric(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "GM Group Metric",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"team": team.name,
 				"target_value": 100,
 				"operator": ">=",

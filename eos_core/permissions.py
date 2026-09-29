@@ -205,7 +205,7 @@ def must_delete_only_own_content(user=None):
 	return primary_role(user) in DELETE_OWN_CONTENT_ROLES
 
 
-def validate_content_deletion(doc, label, owner_field="owner"):
+def validate_content_deletion(doc, label, owner_field):
 	if not must_delete_only_own_content():
 		return
 	if doc.get(owner_field) == frappe.session.user:

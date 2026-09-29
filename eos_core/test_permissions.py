@@ -128,7 +128,7 @@ class TestPermissions(IntegrationTestCase):
 			"EOS Metric",
 			{
 				"metric_name": f"PT Metric {side}",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"team": team_name,
 				"frequency": "Weekly",
 				"target_value": 100,
@@ -237,7 +237,7 @@ class TestPermissions(IntegrationTestCase):
 	def test_organization_wide_rows_stay_visible_to_every_role(self):
 		metric = self._create(
 			"EOS Metric",
-			{"metric_name": "PT Metric Org Wide", "owner": "Administrator", "target_value": 5},
+			{"metric_name": "PT Metric Org Wide", "owner_user": "Administrator", "target_value": 5},
 		)
 		rock = self._create(
 			"Rock",
@@ -291,7 +291,7 @@ class TestPermissions(IntegrationTestCase):
 				{
 					"doctype": "EOS Metric",
 					"metric_name": "PT Metric Sneaked",
-					"owner": user,
+					"owner_user": user,
 					"team": self.team_a.name,
 					"target_value": 1,
 				}
@@ -385,26 +385,34 @@ class TestPermissions(IntegrationTestCase):
 		).insert(ignore_permissions=True)
 		self.assertEqual(rock.owner_user, user)
 
-	def test_a_measurable_owner_is_its_creator_and_cannot_be_reassigned(self):
+	def test_a_measurable_owner_is_reassignable_and_distinct_from_its_creator(self):
 		replacement = self._make_user("Manager")
 		self._seat(replacement, self.team_a.name)
 		name = self.rows["a"]["EOS Metric"].name
 		doc = frappe.get_doc("EOS Metric", name)
-		doc.owner = replacement
-		with self.assertRaises(frappe.CannotChangeConstantError):
-			doc.save()
+		self.assertEqual(doc.owner_user, "Administrator")
+		doc.owner_user = replacement
+		doc.save()
+		self.assertEqual(frappe.db.get_value("EOS Metric", name, "owner_user"), replacement)
 		self.assertEqual(frappe.db.get_value("EOS Metric", name, "owner"), "Administrator")
+
+	def test_a_new_measurable_takes_its_creating_user_as_its_owner(self):
+		user = self._make_user("Manager")
+		self._seat(user, self.team_a.name)
+		metric = self._metric_owned_by(user, self.team_a.name)
+		self.assertEqual(metric.owner_user, user)
+		self.assertEqual(metric.owner, user)
 
 	def _assert_cannot_own(self, role):
 		user = self._make_user(role)
 		self._seat(user, self.team_a.name)
 		name = self.rows["a"]["EOS Metric"].name
 		doc = frappe.get_doc("EOS Metric", name)
-		doc.owner = user
+		doc.owner_user = user
 		with self.assertRaises(frappe.ValidationError) as context:
 			doc.save()
 		self.assertIn("cannot be assigned as the owner", str(context.exception))
-		self.assertEqual(frappe.db.get_value("EOS Metric", name, "owner"), "Administrator")
+		self.assertEqual(frappe.db.get_value("EOS Metric", name, "owner_user"), "Administrator")
 		with self.assertRaises(frappe.ValidationError) as context:
 			frappe.get_doc(
 				{
@@ -419,6 +427,61 @@ class TestPermissions(IntegrationTestCase):
 				}
 			).insert(ignore_permissions=True)
 		self.assertIn("cannot be assigned as the owner", str(context.exception))
+
+	def test_a_team_member_with_a_seat_may_be_assigned_a_measurable(self):
+		manager = self._make_user("Manager")
+		member = self._make_user("Team Member")
+		self._seat(manager, self.team_a.name)
+		self._seat(member, self.team_a.name)
+		name = self.rows["a"]["EOS Metric"].name
+		with self.set_user(manager):
+			doc = frappe.get_doc("EOS Metric", name)
+			doc.owner_user = member
+			doc.save()
+		self.assertEqual(frappe.db.get_value("EOS Metric", name, "owner_user"), member)
+
+	def test_a_measurable_may_not_be_assigned_outside_its_team(self):
+		manager = self._make_user("Manager")
+		stranger = self._make_user("Team Member")
+		self._seat(manager, self.team_a.name)
+		self._seat(stranger, self.team_b.name)
+		name = self.rows["a"]["EOS Metric"].name
+		with self.set_user(manager):
+			doc = frappe.get_doc("EOS Metric", name)
+			doc.owner_user = stranger
+			with self.assertRaises(frappe.ValidationError) as context:
+				doc.save()
+		self.assertIn("is not a Player in team", str(context.exception))
+		self.assertEqual(frappe.db.get_value("EOS Metric", name, "owner_user"), "Administrator")
+
+	def test_the_delete_guard_follows_the_owner_and_not_the_creator(self):
+		manager = self._make_user("Manager")
+		other = self._make_user("Manager")
+		self._seat(manager, self.team_a.name)
+		self._seat(other, self.team_a.name)
+		created_not_owned = self._metric_owned_by(manager, self.team_a.name)
+		with self.set_user(other):
+			doc = frappe.get_doc("EOS Metric", created_not_owned.name)
+			doc.owner_user = other
+			doc.save()
+		self.assertEqual(
+			frappe.db.get_value("EOS Metric", created_not_owned.name, "owner"), manager
+		)
+		self._refuse_delete_as(
+			manager,
+			"EOS Metric",
+			created_not_owned.name,
+			"may only delete a Measurable they own",
+		)
+		owned_not_created = self._metric_owned_by("Administrator", self.team_a.name)
+		with self.set_user(other):
+			doc = frappe.get_doc("EOS Metric", owned_not_created.name)
+			doc.owner_user = other
+			doc.save()
+		self.assertEqual(
+			frappe.db.get_value("EOS Metric", owned_not_created.name, "owner"), "Administrator"
+		)
+		self._delete_as(other, "EOS Metric", owned_not_created.name)
 
 	def test_a_coach_cannot_own_a_measurable_or_a_rock(self):
 		self._assert_cannot_own("Coach")

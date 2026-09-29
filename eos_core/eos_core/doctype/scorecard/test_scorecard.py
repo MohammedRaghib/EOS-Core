@@ -81,7 +81,7 @@ class TestScorecard(IntegrationTestCase):
 				{
 					"doctype": "EOS Metric",
 					"metric_name": f"SC TF {timeframe}",
-					"owner": "Administrator",
+					"owner_user": "Administrator",
 					"team": "SC Timeframes",
 					"target_value": 10,
 					"operator": ">=",
@@ -123,7 +123,7 @@ class TestScorecard(IntegrationTestCase):
 				{
 					"doctype": "EOS Metric",
 					"metric_name": "SC Legacy Weekly Metric",
-					"owner": "Administrator",
+					"owner_user": "Administrator",
 					"team": "SC Legacy Metric",
 					"target_value": 10,
 					"operator": ">=",
@@ -269,7 +269,7 @@ class TestScorecard(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": metric_name,
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"team": "SC Rollup Team",
 				"target_value": 100,
 				"operator": ">=",

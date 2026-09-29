@@ -170,7 +170,7 @@ class TestLevel10Meeting(IntegrationTestCase):
 				{
 					"doctype": "EOS Metric",
 					"metric_name": metric_name,
-					"owner": "Administrator",
+					"owner_user": "Administrator",
 					"team": "L10 Review Team",
 					"target_value": 100,
 					"operator": ">=",

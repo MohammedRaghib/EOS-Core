@@ -79,7 +79,7 @@ class Scorecard(Document):
 		return frappe.get_all(
 			"EOS Metric",
 			filters={"scorecard": self.name, "archived": 0},
-			fields=["name", "owner", "group", "target_value", "rollup"],
+			fields=["name", "owner_user", "group", "target_value", "rollup"],
 			order_by="name asc",
 		)
 
@@ -92,7 +92,7 @@ class Scorecard(Document):
 		)
 		return {
 			"name": metric.name,
-			"owner": metric.owner,
+			"owner": metric.owner_user,
 			"group": metric.group,
 			"goal": metric.target_value,
 			"rollup": metric.rollup,

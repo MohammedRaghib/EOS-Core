@@ -46,7 +46,7 @@ class TestIssue(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "Issue Metric",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"target_value": 100,
 				"operator": ">=",
 				"frequency": "Weekly",
@@ -69,7 +69,7 @@ class TestIssue(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "Issue Streak Metric",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"target_value": 100,
 				"operator": ">=",
 				"frequency": "Weekly",
@@ -93,7 +93,7 @@ class TestIssue(IntegrationTestCase):
 			{
 				"doctype": "EOS Metric",
 				"metric_name": "Issue Metric On Track",
-				"owner": "Administrator",
+				"owner_user": "Administrator",
 				"target_value": 100,
 				"operator": ">=",
 				"frequency": "Weekly",
