@@ -92,7 +92,7 @@ teams and Users, metric creation scoped to a team, per-team list filters possibl
       of all non-archived metrics + off-track summary + trend detection, ordered by
       `Measurable Group.order`. `send_report` emails the team leader (or a chosen recipient) via a
       Jinja template.
-- [x] Tests: `test_level_10_meeting.py` (7), `test_scorecard_report.py` (14) — all green
+- [x] Tests: `test_level_10_meeting.py` (7), `test_scorecard_report.py` (15) — all green
 
 ## Phase 5 — EOS Operating System `[x] DONE`
 
@@ -204,7 +204,7 @@ cannot recur.
   `.editorconfig` / `pyproject.toml` (`indent-style = "tab"`) and would be rewritten wholesale by
   `ruff-format`; and **19** `.py` files are missing a final newline.
 - **The database holds test residue only** (~1 Organization, 1 Team, 1 Player, 1 Scorecard).
-  Nothing has been exercised end-to-end by a user — the 150 green tests are not evidence that any
+  Nothing has been exercised end-to-end by a user — the 248 green tests are not evidence that any
   workflow works in the browser.
 
 ## Block 2 — Ninety parity `[x] DONE`

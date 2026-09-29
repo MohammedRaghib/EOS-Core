@@ -41,7 +41,7 @@ read. The whole suite stays green and `bench migrate` has been run.
    Child DocType, it is a snapshot of the Measurable's owner, and leaving it named `owner` would
    preserve a second colliding field.
 5. **`Scorecard.get_rollup_view` keeps `"owner"` as its JSON payload key.** It is the endpoint's own
-   read contract with 13 tests and no consumer yet (`UI-3` is queued); only the DB column it reads
+   read contract with 11 tests and no consumer yet (`UI-3` is queued); only the DB column it reads
    changes.
 6. **A backfill patch is required.** A site with existing `EOS Metric` rows would otherwise come
    back from `bench migrate` with a null `owner_user`. The live demo site has zero rows, so the
@@ -229,7 +229,7 @@ for both Coach and Observer) and `test_team_member_may_not_create_a_measurable` 
 - `ScorecardReport._email_context` reads `row.owner_user` and still exposes `owner`, so
   `templates/emails/weekly_scorecard_report.html` (`{{ row.owner }}`) is unchanged.
 - `Scorecard._rollup_metrics` fetches `owner_user`; `_rollup_metric` still returns the payload key
-  `owner`, so the 13 `get_rollup_view` tests and the future `UI-3` consumer see no contract change.
+  `owner`, so the 11 `get_rollup_view` tests and the future `UI-3` consumer see no contract change.
 - 15 `"owner": "Administrator"` fixture keys across seven test files became `"owner_user"`.
 
 **Bug caught during this task, worth recording.** The first pass renamed the wrong side of the

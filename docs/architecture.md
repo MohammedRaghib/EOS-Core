@@ -771,7 +771,7 @@ Phase status is in `docs/roadmap.md`; the live work queue with stable IDs is in
   the one grant to take back.
 - **`To Do`, `Issue` and `Rock` cannot be archived at all.** Ninety gives every role but Observer an
   `Archive a To-Do` row and ships an archive view for all three tools, but archiving is a write to an
-  `archived` flag and none of the three carries one. Five other DocTypes do: `EOS Metric`,
-  `Measurable Group`, `Player`, `Team` and `Scorecard`. Queued as `DATA-3`.
+  `archived` flag and none of the three carries one. Six other DocTypes do: `EOS Metric`,
+  `Measurable Group`, `Organization`, `Player`, `Team` and `Scorecard`. Queued as `DATA-3`.
 - Known bugs and the full unwired list are queued in [`TODO.md`](TODO.md); the audit that produced
   them is `docs/roadmap.md` § "Known gaps in Phases 1–5".

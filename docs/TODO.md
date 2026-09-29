@@ -45,7 +45,34 @@ counts and line references (`DEBT-1`, `DEBT-2`, `DEBT-3`, `DEBT-9`, `DEBT-11`, `
 counts and constant count) and two `architecture.md` omissions (the real `EOSMetric.validate` order,
 which skips both permission guards, and the deleted `compute_health` still named in §5). All are
 corrected in place; `DEBT-6` gained a scope note rather than a widened "Done when". Block counts are
-unchanged: 31 open, 24 done.
+unchanged: 30 open, 18 done.
+
+**Doc/code re-verification, 2026-09-29 (second pass, post-`PERM-9`).** Re-checked the same way: every
+status against the code, the live database and a 248-test run. **Still no status was wrong** — all 18
+`DONE` items have real code, all 12 Done SHAs resolve in `git`, and no `TODO` item is secretly built.
+Ten false or stale claims were found and corrected, all documentation-side; no code changed and no
+`bench migrate` was needed. **The 2026-09-29 pass corrected the `archived` count from two to five and
+still got it wrong: `Organization` carries the flag too, so it is six** — that same error was repeated
+in four places, and `architecture.md` §3b contradicted its own §7 by drawing `int archived` on
+`Organization`. **`PERM-3`'s note had gone stale in a way worth recording**, because it was made
+true-then-false by another item rather than by a code change: it said `validate_data_entry_only`
+refuses `EOS Metric.group`, which stopped being true when `PERM-12` replaced that guard's deny-list
+with an allow-list, and `test_a_team_member_may_adjust_a_measurable_goal_and_group` now pins the
+opposite. The rest were bookkeeping: the header's own "31 open, 24 done" never reconciled with the
+item headers or the *Done* table (37 open, 18 done); the Block B header claimed 11/11 while listing
+three open items in the same section; the summary said "Block A is closed" above an open `DATA-3`;
+`PARITY-1` was described as Ninety's "my KPIs"/trailing-streak work when the item is Add Existing
+Measurable + Duplicate; the rollup endpoint was credited with 13 tests when it has 11; a renamed test
+was still cited under its old name; and two `roadmap.md` counts were stale (14 vs 15, 150 vs 248).
+**This pass then made the same mistake one level up**, which is why the counts above are stated as
+re-derived rather than adjusted: a first attempt took the "31 open, 24 done" split as
+"37 open, 18 done" on a `### `-header count, but seven of those headers are `DONE` Block B items
+(`PERM-2`, `PERM-6`, `PERM-7`, `PERM-8`, `PERM-10`, `PERM-11`, `PERM-12`) and two more are prose
+subheadings, so the real split is 30 open / 18 done. The Done-table row count (18) and the
+`**Status** \`DONE\`\` count (7, all inside Block B) are the two figures that actually reconcile.
+Lesson for the next pass: a re-verification pass can *introduce* drift as easily as it removes it, so
+re-derive each number from the code rather than editing the previous pass's number — and when a
+header count and a status count disagree, the status count is the one that survives.
 
 ## Rules for agents working this queue
 
@@ -95,13 +122,20 @@ if you change a condition in `eos_core/permissions.py`, this is what tells you.
 
 # Queue
 
-## Block B is **closed**
+## Block B is **closed on the permission axis**
 
-Block A is **closed**. Block B (permissions) is now **built and correct**: the six roles carry DocPerm
+Block A is **closed except `DATA-3`**, which is the one item still open in it. Block B (permissions)
+is now **built and correct**: the six roles carry DocPerm
 blocks, the team-scoping layer exists, the field-level ownership, data-entry and deletion rules
 Ninety states explicitly are enforced and tested, the grants match Ninety's published tables row for
 row (`PERM-12`), and a Measurable has a real, reassignable owner rather than its creator's name
 (`PERM-9`).
+
+**"Closed" here means closed on permissions, not empty.** `PERM-3`, `PERM-4` and `PERM-5` are still
+open and still counted open in the block header below (12 items, 9 done, 3 open) — what is finished
+is their permission half. Each is waiting on a surface that does not exist yet (`UI-1`, `UI-2`,
+`UI-6`), so they are not outstanding permission work; do not read the 9/3 split as three unresolved
+grants.
 
 The one thing `PERM-9` changed about `PERM-12`'s delete guard: "own" now means `owner_user`, so the
 guard reads *business* ownership. A Manager who created a Measurable and handed it to someone else
@@ -109,7 +143,7 @@ may no longer delete it, and one who did not create it may. That is the stricter
 Ninety's footnote describes.
 
 `PERM-3`, `PERM-4` and `PERM-5` are **UI-blocked**, not permission-blocked — their DocPerm halves
-are already in place and tested. `PARITY-1` (Ninety's "my KPIs"/trailing-streak definition) is no
+are already in place and tested. `PARITY-1` (Add Existing Measurable + Duplicate) is no
 longer gated behind `PERM-9` and is now the largest correctness-parity item left.
 
 ---
@@ -123,10 +157,10 @@ longer gated behind `PERM-9` and is now the largest correctness-parity item left
 To-Do, Issue and Rocks tools each have an `Archive …` and a `View archive` surface. Archiving is a
 write to an `archived` flag, and none of the three tools carries one — verified against the JSON and
 against `show columns` in the live DB, so there is nothing for an archive button to set and no
-archived To-Do can exist at all. Five DocTypes *do* carry the flag: `EOS Metric`, `Measurable Group`,
-`Player`, `Team` and `Scorecard`. (Corrected 2026-09-29: this item previously claimed only `EOS
-Metric` and `Measurable Group` carried one, which was wrong — `Player`, `Team` and `Scorecard` do
-too. The item's conclusion is unaffected.)
+archived To-Do can exist at all. Six DocTypes *do* carry the flag: `EOS Metric`, `Measurable Group`,
+`Organization`, `Player`, `Team` and `Scorecard`. (Corrected twice: this item previously claimed only
+`EOS Metric` and `Measurable Group` carried one, and the 2026-09-29 pass corrected that to five but
+still missed `Organization`. The item's conclusion is unaffected.)
 **Why this is not a permission item** archiving follows `write`, and those grants are already right
 (Observer refused, everyone else with `write` allowed). The gap is a missing field, not a missing
 grant. It is queued here rather than fixed under `PERM-12` because it is a schema change with the
@@ -138,7 +172,7 @@ default list and reachable from an archive view, and the change is covered by te
 
 ---
 
-## Block B — Phase 6: Permissions & Roles (11 items, **11 done**)
+## Block B — Phase 6: Permissions & Roles (12 items, **9 done, 3 open**)
 
 DocPerm blocks and the team-scoping layer are both live. Verified 2026-09-29 in the live DB: all 13
 standard DocTypes carry **7** DocPerm rows (`System Manager` plus the six Ninety roles) and all 11
@@ -174,8 +208,9 @@ The mapping actually applied, per DocType (full table in `docs/architecture.md` 
 | `Scorecard Report`, `Quarterly Review` | + Manager | snapshot surfaces are a settings-level action |
 | child tables | none | children inherit the parent |
 
-`archive`/`unarchive` is not a DocPerm column — it is a write to the `archived` field, which five
-DocTypes carry (`EOS Metric`, `Measurable Group`, `Player`, `Team`, `Scorecard`). So archiving follows
+`archive`/`unarchive` is not a DocPerm column — it is a write to the `archived` field, which six
+DocTypes carry (`EOS Metric`, `Measurable Group`, `Organization`, `Player`, `Team`, `Scorecard`). So
+archiving follows
 `write`: `Observer` is refused by DocPerm, `Team Member` is refused twice on a Measurable (DocPerm on
 the group, and `validate_data_entry_only` on the metric), and the four Measurable-Manager roles may
 do it. No bulk-archive surface exists yet, which is `PERM-4` and `UI-6`. `Rock`, `Issue` and `To Do`
@@ -187,13 +222,18 @@ have no `archived` field at all, which is `DATA-3`.
 Ninety: *"Team Members can also reorder Measurables within a group — even Measurables they do not
 own."* It also interacts with `Measurable Group.order`, where `0` means "unset" rather than "first"
 because the column is `int NOT NULL DEFAULT 0`.
-**Status after `PERM-2`** the DocPerm half is already correct and tested: a `Team Member` has
-`write` on `EOS Metric` and is **read-only** on `Measurable Group` (`create`/`write`/`delete` all
-`0`, verified live), so renaming or deleting a *group* is already impossible for them. What is
-missing is the reorder itself — reordering measurables within a group means editing
-`EOS Metric.group`, and `validate_data_entry_only` currently refuses that, because it is not an
-`entries` row. The guard has to carve out the reorder without opening `target_value`/`operator`/
-`frequency`/`team`.
+**Status after `PERM-2` and `PERM-12`** the DocPerm half is already correct and tested: a
+`Team Member` has `write` on `EOS Metric` and is **read-only** on `Measurable Group`
+(`create`/`write`/`delete` all `0`, verified live), so renaming or deleting a *group* is already
+impossible for them. **The guard half is satisfied too, and the item text used to say otherwise.** It
+previously read that `validate_data_entry_only` "currently refuses" `EOS Metric.group` and that the
+guard "has to carve out the reorder without opening `target_value`". That stopped being true when
+`PERM-12` replaced the deny-list with `TEAM_MEMBER_EDITABLE_FIELDS`, which now allows `entries`,
+`description`, `group`, `min_value`, `max_value` and `target_value` — so both the group move *and*
+the goal a reorder may carry are already permitted for a `Team Member` that holds a seat in the team.
+`test_a_team_member_may_adjust_a_measurable_goal_and_group` pins it. What remains is the surface
+itself: there is no grid, so nothing to drag, and the `Measurable Group.order` trap (`0` means
+"unset", not "first") is untested against a real drag.
 **Done when** the grid exists and a user holding only `Team Member` can drag a measurable owned by
 someone else inside its group, is refused outside it, and cannot rename or delete it — a test per
 case. **Now blocked on `UI-1`.**
@@ -380,7 +420,7 @@ delete a Measurable they own and are refused on one they do not; an Owner delete
 an Observer deletes an Issue and a To-Do but is refused a Measurable; a Team Member deletes a Rock. The
 `DOCPERM_MATRIX` test was extended (`delete` on `EOS Metric` and `Rock` is now "every role but
 Observer", `Issue` and `To Do` are all six). One existing test was **wrong** and was rewritten:
-`test_team_member_enters_data_but_cannot_change_settings` asserted that a Team Member could not change
+`test_team_member_enters_data_but_may_not_change_settings` asserted that a Team Member could not change
 `target_value`, which Ninety's own footnote says they may. It now asserts on `unit_type`, which is
 inside the locked set, and a new test covers the goal/description/group fields a Team Member may
 change. Suite: **243/243 (180 integration + 63 unit)**; `bench migrate` required and run.
@@ -416,7 +456,7 @@ from the browser, and the streak in the description matches `BUG-1`'s corrected 
 
 ### UI-3 — S2 · "View by" dropdown wired to `get_rollup_view`
 **Status** `TODO` · code+tests ☐ · reachable ☐ · **Verified 2026-09-28**
-**Note** the endpoint is built, correct and tested (13 tests in `test_scorecard.py`). Only the UI is
+**Note** the endpoint is built, correct and tested (11 tests in `test_scorecard.py`). Only the UI is
 missing. This is the cheapest parity win in the project.
 **Done when** a `Week / Month / Quarter / Year` control on the grid renders the rolled-up columns,
 and the weekly Goal column is visibly *not* aggregated (that asymmetry is Ninety's, not a bug).
@@ -739,8 +779,8 @@ would have been a second competing source of truth for the same fact.
 
 **`PERM-2` — the matrix, and what it does not cover.** Full per-DocType table in
 `architecture.md` §3h. `archive`/`unarchive` is not a DocPerm column at all — it is a write to the
-`archived` field that five DocTypes carry (`EOS Metric`, `Measurable Group`, `Player`, `Team`,
-`Scorecard`) — so it follows `write`, and
+`archived` field that six DocTypes carry (`EOS Metric`, `Measurable Group`, `Organization`, `Player`,
+`Team`, `Scorecard`) — so it follows `write`, and
 `Observer` and `Team Member` are refused for them by the two other guards. `share` is `0` for
 `Team Member` and `Observer` everywhere (and for `Manager` on `Organization`, `Player`, `Team` and
 `VTO`), so neither can widen a document's visibility past the team scoping `PERM-6` puts around
@@ -919,6 +959,6 @@ zero). §4 now lists 29 of 29 public functions and agrees with `AGENTS.md`.
 
 Next item to land: `DATA-3` (S2) — add the `archived` flag to `Rock`, `Issue` and `To Do`. It is
 small and independent: three JSON edits, and it unblocks Ninety's archive and archive view for all
-three tools. `PARITY-1` (Ninety's "my KPIs" definition and the trailing-streak question) is the
+three tools. `PARITY-1` (Add Existing Measurable + Duplicate) is the
 larger correctness-parity item and is no longer gated on anything. `PERM-3`, `PERM-4` and `PERM-5`
 remain UI-blocked, and `PERM-4`'s "Reassign" action now has a field to act on.
